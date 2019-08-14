@@ -1,15 +1,19 @@
 module DiskDataProviders
-using MLDataUtils, DataFrames, Dates
+using MLDataUtils, DataFrames, Dates, Serialization
 
-import Threads: nthreads, threadid, @spawn, SpinLock
+import Base.Threads: nthreads, threadid, @spawn, SpinLock
 
-Base.@kwdef mutable struct DiskDataProvider{XT,YT}
-    files
+export DiskDataProvider2, label2filedict, start_reading, stop
+
+Serialization.serialize(filename::AbstractString, data) = open(f->serialize(f, data), filename, "w")
+Serialization.deserialize(filename) = open(f->deserialize(f), filename)
+
+Base.@kwdef mutable struct DiskDataProvider2{XT,YT}
+    length     ::Int = typemax(Int)
     labels     ::Vector{YT}
-    datapoint_size
-    label2files::Dict{YT,String}
-    queue_full ::Condition = Condition() # QUESTION: should this be a Threads.Condition?
-    queue      ::Vector{XT}
+    label2files::Dict{YT,Vector{String}}
+    queue_full ::Threads.Event = Threads.Event()
+    queue      ::Vector{Tuple{XT,YT}}
     label_iterator
     label_iterator_state = nothing
     position   ::Int = 1
@@ -17,11 +21,11 @@ Base.@kwdef mutable struct DiskDataProvider{XT,YT}
     queuelock  ::SpinLock = SpinLock()
 end
 
-function DiskDataProvider(queuelength::Int)
-
+function DiskDataProvider2{XT,YT}(queuelength::Int; kwargs...) where {XT,YT}
+    DiskDataProvider2{XT,YT}(; queue=Vector{Tuple{XT,YT}}(undef,queuelength), kwargs...)
 end
 
-nclasses(d::DiskDataProvider) = length(unique(d.labels))
+nclasses(d::DiskDataProvider2) = length(unique(d.labels))
 
 stop(d) = (d.reading = false)
 
@@ -34,7 +38,7 @@ macro withlock(l, ex)
     end
 end
 
-withlock(f, l::DiskDataProvider) = withlock(f, l.queuelock)
+withlock(f, l::DiskDataProvider2) = withlock(f, l.queuelock)
 
 function withlock(f, l::Base.AbstractLock)
     lock(l)
@@ -46,13 +50,13 @@ function withlock(f, l::Base.AbstractLock)
 end
 
 
-function populate_queue(d::DiskDataProvider)
+function populate_queue(d::DiskDataProvider2)
     while d.reading
         y = sample_label(d)
-        x = sample_input(d,x)
+        x = sample_input(d,y)
         xy = (x,y)
         withlock(d) do
-            queue[d.position] = xy
+            d.queue[d.position] = xy
             d.position += 1
             if d.position > length(d.queue)
                 notify(d.queue_full)
@@ -63,9 +67,9 @@ function populate_queue(d::DiskDataProvider)
     @info "Stopped reading"
 end
 
-Base.wait(d::DiskDataProvider) = wait(d.queue_full)
+Base.wait(d::DiskDataProvider2) = wait(d.queue_full)
 
-function start_reading(d::DiskDataProvider)
+function start_reading(d::DiskDataProvider2)
     d.reading = true
     task = @spawn populate_queue(d)
     @info "Populating queue continuosly. Call `stop(d)` to stop reading`. Call `wait(d)` to be notified when the queue is fully populated."
@@ -75,8 +79,8 @@ end
 
 
 function sample_label(d)
-    res = iterate(d.label_iterator, d.label_iterator_state)
-    res === nothing && error("Reached the end of the labl iterator")
+    res = d.label_iterator_state === nothing ?  iterate(d.label_iterator) : iterate(d.label_iterator, d.label_iterator_state)
+    res === nothing && error("Reached the end of the label iterator")
     d.label_iterator_state = res[2]
     res[1]
 end
@@ -84,14 +88,29 @@ end
 function sample_input(d, y)
     files = d.label2files[y]
     fileind = rand(1:length(files))
-    load(files[fileind]) # TODO: what if the label appears somewhere in the midle of the file? handle this case by pre-processing?
+    x,yr = deserialize(files[fileind])
+    x
 end
 
 
-function timerange2label(start,duration)
-
-
+function label2filedict(labels, files)
+    ulabels = unique(labels)
+    ufiles = map(ulabels) do l
+        files[labels .== l]
+    end
+    label2files = Dict(Pair.(ulabels, ufiles))
 end
 
+function Base.iterate(d::DiskDataProvider2, state=0)
+    state == length(d) && return nothing
+     (sample_random_datapoint(d),state+1)
+end
+Base.length(d::DiskDataProvider2) = d.length
+
+function sample_random_datapoint(d)
+    wait(d.queue_full)
+    i = rand(1:length(d.queue))
+    d.queue[i]
+end
 
 end
