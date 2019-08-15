@@ -3,17 +3,18 @@ using MLDataUtils, LearnBase, DataFrames, Dates, Serialization
 
 import Base.Threads: nthreads, threadid, @spawn, SpinLock
 
-export DiskDataProvider, label2filedict, start_reading, stop!
+export DiskDataProvider, label2filedict, start_reading, stop!, UnbufferedBatchView
 
 Serialization.serialize(filename::AbstractString, data) = open(f->serialize(f, data), filename, "w")
 Serialization.deserialize(filename) = open(f->deserialize(f), filename)
 
 Base.@kwdef mutable struct DiskDataProvider{XT,YT}
     batchsize  ::Int           = 8
-    length     ::Int           = typemax(Int)
     labels     ::Vector{YT}
+    files      ::Vector{String}
+    length     ::Int           = length(labels)
     ulabels    ::Vector{YT}    = unique(labels)
-    label2files::Dict{YT,Vector{String}}
+    label2files::Dict{YT,Vector{String}} = label2filedict(labels, files)
     queue_full ::Threads.Event = Threads.Event()
     queue      ::Vector{Tuple{XT,YT}}
     label_iterator             = Iterators.cycle(unique(labels))
@@ -36,6 +37,8 @@ function DiskDataProvider{XT,YT}(xsize, batchsize, queuelength::Int; kwargs...) 
         y_batch = y_batch,
         kwargs...)
 end
+
+Base.show(io::IO, d::DiskDataProvider) = println(io, "$(typeof(d)), length: $(length(d))")
 
 MLDataUtils.nobs(d::DiskDataProvider)  = length(d.queue)
 nclasses(d::DiskDataProvider)  = length(d.ulabels)
@@ -117,22 +120,6 @@ function Base.iterate(d::DiskDataProvider, state=0)
 end
 Base.length(d::DiskDataProvider) = d.length
 
-# struct DiskBatches{T,N,XT,YT}
-#     d::DiskDataProvider{XT,YT}
-#     x::Array{T,N}
-#     y::Vector{YT}
-# end
-#
-#
-# function Base.iterate(db::DiskBatches, state=0)
-#     for (i,(x,y)) = enumerate(Iterators.take(db.d, size(db.x, 4)))
-#         db.x[:,:,1,i] .= x
-#         db.y[i] = y
-#     end
-#     ((db.x, db.y), state+1)
-# end
-# Base.length(d::DiskBatches) = typemax(Int)
-
 
 function sample_random_datapoint(d)
     wait(d.queue_full)
@@ -150,6 +137,51 @@ function populate_batch(d,inds)
     (d.x_batch, d.y_batch)
 end
 
+function unbuffered_batch(d,inds)
+    mi,ma = extrema(inds)
+    X = similar(d.x_batch, size(d.x_batch)[1:end-1]..., length(inds))
+    Y = similar(d.y_batch, length(inds))
+    for (i,j) in enumerate(inds)
+        x,y = deserialize(d.files[j])
+        X[:,:,:,i] .= x
+        Y[i] = y
+    end
+    X,Y
+end
+
+struct UnbufferedBatchView
+    inner
+    dataset
+end
+
+UnbufferedBatchView(dataset, bs::Int = dataset.batchsize) = UnbufferedBatchView(Iterators.partition(1:length(dataset), bs), dataset)
+
+function Base.iterate(ubw::UnbufferedBatchView)
+    res = iterate(ubw.inner)
+    res === nothing && return nothing
+    unbuffered_batch(ubw.dataset, res[1]), res[2]
+end
+
+function Base.iterate(ubw::UnbufferedBatchView, state)
+    res = iterate(ubw.inner, state)
+    res === nothing && return nothing
+    unbuffered_batch(ubw.dataset, res[1]), res[2]
+end
+Base.length(ubw::UnbufferedBatchView) = length(ubw.inner)
+
+
+
+function full_batch(d::DiskDataProvider{XT,YT}) where {XT,YT}
+    X = similar(d.x_batch, size(d.x_batch)[1:end-1]..., length(d))
+    Y = similar(d.y_batch, length(d))
+    for i = 1:length(d)
+        x,y = deserialize(d.files[i])
+        X[:,:,:,i] .= x
+        Y[i] = y
+    end
+    X,Y
+end
+
 function Base.iterate(ds::DataSubset{<:DiskDataProvider}, state=nothing)
     inds = ds.indices
     d = ds.data
@@ -161,5 +193,36 @@ MLDataUtils.batchview(d::DiskDataProvider) = batchview(d, size=d.batchsize)
 LearnBase.getobs(d::DiskDataProvider, inds) = populate_batch(d,inds)
 LearnBase.nobs(d::DiskDataProvider) = length(d.queue)
 LearnBase.datasubset(d::DiskDataProvider, inds, ::ObsDim.Undefined) = populate_batch(d,inds)
+
+
+
+function Base.split(d::DiskDataProvider,i1,i2)
+    DiskDataProvider(d,i1), DiskDataProvider(d,i2)
+end
+
+function DiskDataProviders.DiskDataProvider(d::DiskDataProvider, inds::AbstractArray)
+    DiskDataProvider(
+        batchsize            = d.batchsize,
+        length               = length(inds),
+        labels               = d.labels[inds],
+        files                = d.files[inds],
+        ulabels              = d.ulabels,
+        queue_full           = Threads.Event(),
+        queue                = similar(d.queue),
+        label_iterator       = d.label_iterator,
+        label_iterator_state = nothing,
+        position             = 1,
+        reading              = false,
+        queuelock            = SpinLock(),
+        x_batch              = similar(d.x_batch),
+        y_batch              = similar(d.y_batch)
+    )
+end
+
+function MLDataUtils.stratifiedobs(d::DiskDataProvider, p::AbstractFloat, args...; kwargs...)
+    yt,yv = stratifiedobs(d.labels, p, args...; kwargs...)
+    split(d, first(yt.indices), first(yv.indices))
+end
+
 
 end
