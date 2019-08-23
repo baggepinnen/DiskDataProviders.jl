@@ -27,6 +27,7 @@ Base.@kwdef mutable struct QueueDiskDataProvider{XT,YT} <: AbstractDiskDataProvi
     queuelock  ::SpinLock      = SpinLock()
     x_batch    ::Array{Float32,4}
     y_batch    ::Vector{YT}
+    transform = nothing
 end
 
 function QueueDiskDataProvider{XT,YT}(xsize, batchsize, queuelength::Int; kwargs...) where {XT,YT}
@@ -56,7 +57,8 @@ function QueueDiskDataProvider(d::QueueDiskDataProvider, inds::AbstractArray)
         reading              = false,
         queuelock            = SpinLock(),
         x_batch              = similar(d.x_batch),
-        y_batch              = similar(d.y_batch)
+        y_batch              = similar(d.y_batch),
+        transform            = d.transform
     )
 end
 
@@ -76,6 +78,7 @@ Base.@kwdef mutable struct ChannelDiskDataProvider{XT,YT} <: AbstractDiskDataPro
     queuelock  ::SpinLock      = SpinLock()
     x_batch    ::Array{Float32,4}
     y_batch    ::Vector{YT}
+    transform = nothing
 end
 
 function ChannelDiskDataProvider{XT,YT}(xsize, batchsize, queuelength::Int; kwargs...) where {XT,YT}
@@ -103,7 +106,8 @@ function ChannelDiskDataProvider(d::ChannelDiskDataProvider, inds::AbstractArray
         reading              = false,
         queuelock            = SpinLock(),
         x_batch              = similar(d.x_batch),
-        y_batch              = similar(d.y_batch)
+        y_batch              = similar(d.y_batch),
+        transform            = d.transform
     )
 end
 
@@ -196,7 +200,7 @@ end
 function sample_input(d, y)
     files = d.label2files[y]
     fileind = rand(1:length(files))
-    x,yr = deserialize(files[fileind])
+    x,yr = read_and_transform(d,fileind)
     x
 end
 

@@ -1,3 +1,5 @@
+read_and_transform(d::AbstractDiskDataProvider, fileindex) = d.transform === nothing ? deserialize(d.files[fileindex]) : d.transform(deserialize(d.files[fileindex]))
+
 function buffered_batch(d::QueueDiskDataProvider, inds)
     for (i,j) in enumerate(inds)
         x,y = d.queue[j]
@@ -23,7 +25,7 @@ function unbuffered_batch(d::AbstractDiskDataProvider{XT,YT}, inds)::Tuple{Array
     X = similar(d.x_batch, size(d.x_batch)[1:end-1]..., length(inds))
     Y = similar(d.y_batch, length(inds))
     for (i,j) in enumerate(inds)
-        x,y = deserialize(d.files[j])
+        x,y = read_and_transform(d,j)
         X[:,:,:,i] .= x
         Y[i] = y
     end
@@ -34,7 +36,7 @@ function full_batch(d::AbstractDiskDataProvider{XT,YT}) where {XT,YT}
     X = similar(d.x_batch, size(d.x_batch)[1:end-1]..., length(d))
     Y = similar(d.y_batch, length(d))
     for i = 1:length(d)
-        x,y = deserialize(d.files[i])
+        x,y = read_and_transform(d,i)
         X[:,:,:,i] .= x
         Y[i] = y
     end
@@ -92,7 +94,7 @@ Base.length(d::UnbufferedIterator) = length(d.d)
 # Base.pairs(d::BufferedIterator) = enumerate(d)
 Base.pairs(d::UnbufferedIterator) = enumerate(d.d)
 Base.pairs(d::AbstractDiskDataProvider) = enumerate(d)
-Base.getindex(d::AbstractDiskDataProvider, i) = deserialize(d.files[i])
+Base.getindex(d::AbstractDiskDataProvider, i) = read_and_transform(d,i)
 
 function MLDataUtils.batchview(d::AbstractDiskDataProvider; size=d.batchsize, kwargs...)
     isready(d) || error("You can only create a buffered iterator after you have started reading elements into the buffer.")
