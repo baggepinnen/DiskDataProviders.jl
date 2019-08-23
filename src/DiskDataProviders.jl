@@ -1,5 +1,5 @@
 module DiskDataProviders
-using MLDataUtils, LearnBase, DataFrames, Dates, Serialization
+using MLDataUtils, LearnBase, Dates, Serialization
 
 import Base.Threads: nthreads, threadid, @spawn, SpinLock
 
@@ -127,6 +127,9 @@ Base.wait(d  ::QueueDiskDataProvider) = wait(d.queue_full)
 Base.wait(d  ::ChannelDiskDataProvider) = wait(d.channel)
 Base.take!(d ::ChannelDiskDataProvider) = take!(d.channel)
 
+Base.isready(d  ::QueueDiskDataProvider) = isready(d.queue_full.set)
+Base.isready(d  ::ChannelDiskDataProvider) = isready(d.channel)
+
 macro withlock(l, ex)
     quote
         lock($(esc(l)))
@@ -169,9 +172,7 @@ function populate(d::ChannelDiskDataProvider)
         y = sample_label(d)
         x = sample_input(d,y)
         xy = (x,y)
-        withlock(d) do
-            put!(d.channel, xy)
-        end
+        put!(d.channel, xy)
     end
     @info "Stopped reading"
 end

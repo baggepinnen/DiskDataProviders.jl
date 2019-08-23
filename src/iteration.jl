@@ -9,6 +9,7 @@ end
 
 # inds are ignored for this iterator
 function buffered_batch(d::ChannelDiskDataProvider, inds)
+    # isready(d.channel) || error("There are no elements in the channel. Either start reading or switch to a QueueDiskDataProvider")
     for (i,j) in enumerate(inds)
         x,y = take!(d)
         d.x_batch[:,:,:,i] .= x
@@ -88,21 +89,28 @@ Base.length(d::BufferedIterator) = d.d.length
 Base.length(d::UnbufferedIterator) = length(d.d)
 
 
-Base.pairs(d::BufferedIterator) = enumerate(d)
-Base.pairs(d::UnbufferedIterator) = enumerate(d)
+# Base.pairs(d::BufferedIterator) = enumerate(d)
+Base.pairs(d::UnbufferedIterator) = enumerate(d.d)
 Base.pairs(d::AbstractDiskDataProvider) = enumerate(d)
 Base.getindex(d::AbstractDiskDataProvider, i) = deserialize(d.files[i])
 
-MLDataUtils.batchview(d::AbstractDiskDataProvider; size=d.batchsize, kwargs...) = batchview(BufferedIterator(d); size=size, kwargs...)
+function MLDataUtils.batchview(d::AbstractDiskDataProvider; size=d.batchsize, kwargs...)
+    isready(d) || error("You can only create a buffered iterator after you have started reading elements into the buffer.")
+    batchview(BufferedIterator(d); size=size, kwargs...)
+end
 MLDataUtils.batchview(d::UnbufferedIterator; size=d.batchsize, kwargs...) = batchview(UnbufferedIterator(d); size=size, kwargs...)
 
-LearnBase.nobs(d::QueueDiskDataProvider)  = queuelength(d)
-LearnBase.nobs(d::ChannelDiskDataProvider)  = queuelength(d)
+LearnBase.nobs(d::QueueDiskDataProvider)  = length(d)
+LearnBase.nobs(d::ChannelDiskDataProvider)  = length(d)
 
-LearnBase.nobs(d::BufferedIterator) = queuelength(d.d)
+LearnBase.nobs(d::BufferedIterator) = length(d.d)
 LearnBase.getobs(d::BufferedIterator, inds) = buffered_batch(d.d,inds)
 LearnBase.datasubset(d::BufferedIterator, inds, ::ObsDim.Undefined) = buffered_batch(d.d,inds)
 
 LearnBase.nobs(d::UnbufferedIterator) = length(d.d)
 LearnBase.getobs(d::UnbufferedIterator, inds) = unbuffered_batch(d.d,inds)
 LearnBase.datasubset(d::UnbufferedIterator, inds, ::ObsDim.Undefined) = unbuffered_batch(d.d,inds)
+
+
+Base.show(io::IO, d::BufferedIterator) = println(io, "$(typeof(d)), length: $(length(d.d))")
+Base.show(io::IO, d::UnbufferedIterator) = println(io, "$(typeof(d)), length: $(length(d.d))")
