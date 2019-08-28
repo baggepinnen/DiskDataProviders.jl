@@ -51,6 +51,9 @@ struct UnbufferedIterator{T <: AbstractDiskDataProvider}
     d::T
 end
 
+Base.show(io::IOContext, m::MIME, bw::BatchView) = show(io, m, "BatchView{BufferedIterator}")
+Base.show(io::IOContext, m::MIME, bw::BatchView) = show(io, m, "BatchView{UnbufferedIterator}")
+
 
 function Base.iterate(d::BufferedIterator{<: QueueDiskDataProvider}, state=0)
     state == length(d) && return nothing
@@ -62,9 +65,13 @@ function Base.iterate(d::BufferedIterator{<: ChannelDiskDataProvider}, state=0)
     (take!(d),state+1)
 end
 
-function Base.iterate(ubw::UnbufferedIterator, state=1)
-    state > length(ubw.d) && (return nothing)
-    ubw.d[state], state+1
+function Base.iterate(d::UnbufferedIterator, state=1)
+    state > length(d.d) && (return nothing)
+    d.d[state], state+1
+end
+
+function Base.iterate(d::AbstractDiskDataProvider, args...)
+    iterate(UnbufferedIterator(d), args...)
 end
 
 # function Base.iterate(ubw::UnbufferedIterator, state)
