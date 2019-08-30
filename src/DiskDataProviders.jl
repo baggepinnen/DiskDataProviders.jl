@@ -11,7 +11,7 @@ Serialization.deserialize(filename) = open(f->deserialize(f), filename)
 abstract type AbstractDiskDataProvider{XT,YT} end
 
 
-Base.@kwdef mutable struct QueueDiskDataProvider{XT,YT} <: AbstractDiskDataProvider{XT,YT}
+Base.@kwdef mutable struct QueueDiskDataProvider{XT,YT,BT} <: AbstractDiskDataProvider{XT,YT}
     batchsize  ::Int           = 8
     labels     ::Vector{YT}
     files      ::Vector{String}
@@ -32,9 +32,13 @@ end
 
 function QueueDiskDataProvider{XT,YT}(xsize, batchsize, queuelength::Int; kwargs...) where {XT,YT}
     queue   = Vector{Tuple{XT,YT}}(undef, queuelength)
-    x_batch = Array{Float32,4}(undef, xsize..., batchsize)
+    if XT <: AbstractVector
+        x_batch = Array{Float32,2}(undef, xsize..., batchsize)
+    else
+        x_batch = Array{Float32,4}(undef, xsize..., batchsize)
+    end
     y_batch = Vector{YT}(undef, batchsize)
-    QueueDiskDataProvider{XT,YT}(;
+    QueueDiskDataProvider{XT,YT,typeof(x_batch)}(;
         queue     = queue,
         batchsize = batchsize,
         x_batch = x_batch,
@@ -64,7 +68,7 @@ end
 
 
 
-Base.@kwdef mutable struct ChannelDiskDataProvider{XT,YT} <: AbstractDiskDataProvider{XT,YT}
+Base.@kwdef mutable struct ChannelDiskDataProvider{XT,YT,BT} <: AbstractDiskDataProvider{XT,YT}
     batchsize  ::Int           = 8
     labels     ::Vector{YT}
     files      ::Vector{String}
@@ -76,16 +80,20 @@ Base.@kwdef mutable struct ChannelDiskDataProvider{XT,YT} <: AbstractDiskDataPro
     label_iterator_state       = nothing
     reading    ::Bool          = false
     queuelock  ::SpinLock      = SpinLock()
-    x_batch    ::Array{Float32,4}
+    x_batch    ::BT
     y_batch    ::Vector{YT}
     transform = nothing
 end
 
 function ChannelDiskDataProvider{XT,YT}(xsize, batchsize, queuelength::Int; kwargs...) where {XT,YT}
     channel = Channel{Tuple{XT,YT}}(queuelength)
-    x_batch = Array{Float32,4}(undef, xsize..., batchsize)
+    if XT <: AbstractVector
+        x_batch = Array{Float32,2}(undef, xsize..., batchsize)
+    else
+        x_batch = Array{Float32,4}(undef, xsize..., batchsize)
+    end
     y_batch = Vector{YT}(undef, batchsize)
-    ChannelDiskDataProvider{XT,YT}(;
+    ChannelDiskDataProvider{XT,YT,typeof(x_batch)}(;
         channel   = channel,
         batchsize = batchsize,
         x_batch = x_batch,
@@ -154,11 +162,20 @@ function withlock(f, l::Base.AbstractLock)
     end
 end
 
+function get_xy(d::AbstractDiskDataProvider)
+    y = sample_label(d)
+    x = sample_input(d,y)
+    xy = (x,y)
+end
+
+function get_xy(d::AbstractDiskDataProvider{XT,Nothing}) where {XT}
+    x = sample_input(d)
+    (x,nothing)
+end
+
 function populate(d::QueueDiskDataProvider)
     while d.reading
-        y = sample_label(d)
-        x = sample_input(d,y)
-        xy = (x,y)
+        xy = get_xy(d)
         withlock(d) do
             d.queue[d.position] = xy
             d.position += 1
@@ -173,9 +190,7 @@ end
 
 function populate(d::ChannelDiskDataProvider)
     while d.reading
-        y = sample_label(d)
-        x = sample_input(d,y)
-        xy = (x,y)
+        xy = get_xy(d)
         put!(d.channel, xy)
     end
     @info "Stopped reading"
@@ -201,6 +216,12 @@ function sample_input(d, y)
     files = d.label2files[y]
     fileind = rand(1:length(files))
     x,yr = read_and_transform(d,fileind)
+    x
+end
+
+function sample_input(d)
+    fileind = rand(1:length(d.files))
+    x = read_and_transform(d,fileind)
     x
 end
 

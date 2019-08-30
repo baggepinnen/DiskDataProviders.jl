@@ -1,9 +1,11 @@
 read_and_transform(d::AbstractDiskDataProvider, fileindex) = d.transform === nothing ? deserialize(d.files[fileindex]) : d.transform(deserialize(d.files[fileindex]))
+copyto_batch!(dst::AbstractArray{T,4},src,i) where T = dst[:,:,:,i] .= src
+copyto_batch!(dst::Matrix,src,i)  = dst[:,i] .= src
 
 function buffered_batch(d::QueueDiskDataProvider, inds)
     for (i,j) in enumerate(inds)
         x,y = d.queue[j]
-        d.x_batch[:,:,:,i] .= x
+        copyto_batch!(d.x_batch, x, i)
         d.y_batch[i] = y
     end
     (d.x_batch, d.y_batch)
@@ -14,7 +16,7 @@ function buffered_batch(d::ChannelDiskDataProvider, inds)
     # isready(d.channel) || error("There are no elements in the channel. Either start reading or switch to a QueueDiskDataProvider")
     for (i,j) in enumerate(inds)
         x,y = take!(d)
-        d.x_batch[:,:,:,i] .= x
+        copyto_batch!(d.x_batch, x, i)
         d.y_batch[i] = y
     end
     (d.x_batch, d.y_batch)
@@ -26,7 +28,7 @@ function unbuffered_batch(d::AbstractDiskDataProvider{XT,YT}, inds)::Tuple{Array
     Y = similar(d.y_batch, length(inds))
     for (i,j) in enumerate(inds)
         x,y = read_and_transform(d,j)
-        X[:,:,:,i] .= x
+        copyto_batch!(X, x, i)
         Y[i] = y
     end
     X,Y
@@ -37,10 +39,29 @@ function full_batch(d::AbstractDiskDataProvider{XT,YT}) where {XT,YT}
     Y = similar(d.y_batch, length(d))
     for i = 1:length(d)
         x,y = read_and_transform(d,i)
-        X[:,:,:,i] .= x
+        copyto_batch!(X, x, i)
         Y[i] = y
     end
     X,Y
+end
+
+function unbuffered_batch(d::AbstractDiskDataProvider{XT,Nothing}, inds)::Tuple{Array{eltype(XT),4},Vector{YT}} where {XT}
+    mi,ma = extrema(inds)
+    X = similar(d.x_batch, size(d.x_batch)[1:end-1]..., length(inds))
+    for (i,j) in enumerate(inds)
+        x,y = read_and_transform(d,j)
+        copyto_batch!(X, x, i)
+    end
+    X
+end
+
+function full_batch(d::AbstractDiskDataProvider{XT,Nothing}) where {XT}
+    X = similar(d.x_batch, size(d.x_batch)[1:end-1]..., length(d))
+    for i = 1:length(d)
+        x,y = read_and_transform(d,i)
+        copyto_batch!(X, x, i)
+    end
+    X
 end
 
 struct BufferedIterator{T <: AbstractDiskDataProvider}
@@ -62,7 +83,7 @@ end
 
 function Base.iterate(d::BufferedIterator{<: ChannelDiskDataProvider}, state=0)
     state == length(d) && return nothing
-    (take!(d),state+1)
+    (take!(d.d),state+1)
 end
 
 function Base.iterate(d::UnbufferedIterator, state=1)
