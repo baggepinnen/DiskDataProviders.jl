@@ -2,8 +2,7 @@
 
 Usage example
 ```julia
-using DiskDataProviders, MLDataUtils, Flux, CuArrays, MLBase,
-rootpath = "/media/fredrikb/storage/crocs/20190821/"
+using DiskDataProviders, MLDataUtils
 
 files = # vector of strings to serialized files
 labs = fill(nothing, length(files))
