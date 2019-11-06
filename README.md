@@ -11,7 +11,7 @@ transform(x) = # some pre transformation of x
 
 dataset = ChannelDiskDataProvider{Matrix{Float32}, Nothing}(data_size_tuple, 2, channel_length, labels=labs, files=files, transform=transform)
 
-t = start_reading(datasett) # Start reading of the data
+t = start_reading(dataset) # Start reading of the data
 istaskstarted(t) && !istaskfailed(t) && wait(datasett)
 bw =  batchview(dataset)
 x,y = first(bw) # The first data point
