@@ -1,24 +1,27 @@
 read_and_transform(d::AbstractDiskDataProvider, fileindex) = d.transform === nothing ? deserialize(d.files[fileindex]) : d.transform(deserialize(d.files[fileindex]))
+
+# read_and_transform(d::AbstractDiskDataProvider{<:Any, Nothing}, fileindex) = d.transform === nothing ? (deserialize(d.files[fileindex]), nothing) : (d.transform(deserialize(d.files[fileindex])), nothing)
+
 copyto_batch!(dst::AbstractArray{T,4},src,i) where T = dst[:,:,:,i] .= src
 copyto_batch!(dst::Matrix,src,i)  = dst[:,i] .= src
 
-function buffered_batch(d::QueueDiskDataProvider, inds)
+function buffered_batch(d::QueueDiskDataProvider{<:Any, YT}, inds) where YT
     for (i,j) in enumerate(inds)
         x,y = d.queue[j]
         copyto_batch!(d.x_batch, x, i)
-        d.y_batch[i] = y
+        YT === Nothing || (d.y_batch[i] = y)
     end
     (d.x_batch, d.y_batch)
 end
 
 # inds are ignored for this iterator
-function buffered_batch(d::ChannelDiskDataProvider, inds)
+function buffered_batch(d::ChannelDiskDataProvider{<:Any, YT}, inds) where YT
     # isready(d.channel) || error("There are no elements in the channel. Either start reading or switch to a QueueDiskDataProvider")
     for (i,j) in enumerate(inds)
         x,y = take!(d)
         size(d.x_batch,1) == size(x,1) || continue
         copyto_batch!(d.x_batch, x, i)
-        d.y_batch[i] = y
+        YT === Nothing || (d.y_batch[i] = y)
     end
     (d.x_batch, d.y_batch)
 end

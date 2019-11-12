@@ -15,9 +15,9 @@ abstract type AbstractDiskDataProvider{XT,YT} end
 
 Base.@kwdef mutable struct QueueDiskDataProvider{XT,YT,BT} <: AbstractDiskDataProvider{XT,YT}
     batchsize  ::Int           = 8
-    labels     ::Vector{YT}
     files      ::Vector{String}
-    length     ::Int           = length(labels)
+    labels     ::Vector{YT}    = [nothing]
+    length     ::Int           = length(files)
     ulabels    ::Vector{YT}    = unique(labels)
     label2files::Dict{YT,Vector{String}} = label2filedict(labels, files)
     queue_full ::Threads.Event = Threads.Event()
@@ -52,7 +52,7 @@ function QueueDiskDataProvider{XT,YT}(xsize, batchsize, queuelength::Int; kwargs
     else
         x_batch = Array{Float32,4}(undef, xsize..., batchsize)
     end
-    y_batch = Vector{YT}(undef, batchsize)
+    y_batch = Vector{YT}(undef,  YT === Nothing ? 0 : batchsize)
     QueueDiskDataProvider{XT,YT,typeof(x_batch)}(;
         queue     = queue,
         batchsize = batchsize,
@@ -67,12 +67,12 @@ end
 
 This constructor can be used to create a dataprovider that is a subset of another.
 """
-function QueueDiskDataProvider(d::QueueDiskDataProvider, inds::AbstractArray)
+function QueueDiskDataProvider(d::QueueDiskDataProvider{<:Any, YT}, inds::AbstractArray) where YT
     QueueDiskDataProvider(
         batchsize            = d.batchsize,
-        length               = length(inds),
-        labels               = d.labels[inds],
+        labels               = YT === Nothing ? [nothing] : d.labels[inds],
         files                = d.files[inds],
+        length               = length(inds),
         ulabels              = d.ulabels,
         queue_full           = Threads.Event(),
         queue                = similar(d.queue),
@@ -89,9 +89,9 @@ end
 
 Base.@kwdef mutable struct ChannelDiskDataProvider{XT,YT,BT} <: AbstractDiskDataProvider{XT,YT}
     batchsize  ::Int           = 8
-    labels     ::Vector{YT}
+    labels     ::Vector{YT}    = [nothing]
     files      ::Vector{String}
-    length     ::Int           = length(labels)
+    length     ::Int           = length(files)
     ulabels    ::Vector{YT}    = unique(labels)
     label2files::Dict{YT,Vector{String}} = label2filedict(labels, files)
     channel    ::Channel{Tuple{XT,YT}}
@@ -123,7 +123,7 @@ function ChannelDiskDataProvider{XT,YT}(xsize, batchsize, queuelength::Int; kwar
     else
         x_batch = Array{Float32,4}(undef, xsize..., batchsize)
     end
-    y_batch = Vector{YT}(undef, batchsize)
+    y_batch = Vector{YT}(undef, YT === Nothing ? 0 : batchsize)
     ChannelDiskDataProvider{XT,YT,typeof(x_batch)}(;
         channel   = channel,
         batchsize = batchsize,
@@ -137,11 +137,11 @@ end
 
 This constructor can be used to create a dataprovider that is a subset of another.
 """
-function ChannelDiskDataProvider(d::ChannelDiskDataProvider, inds::AbstractArray)
+function ChannelDiskDataProvider(d::ChannelDiskDataProvider{<:Any, YT}, inds::AbstractArray) where YT
     ChannelDiskDataProvider(
         batchsize            = d.batchsize,
         length               = length(inds),
-        labels               = d.labels[inds],
+        labels               = YT === Nothing ? [nothing] : d.labels[inds],
         files                = d.files[inds],
         ulabels              = d.ulabels,
         channel              = deepcopy(d.channel),
@@ -272,8 +272,8 @@ Sample one input with label `y` from the dataset
 function sample_input(d, y)
     files = d.label2files[y]
     fileind = rand(1:length(files))
-    x,yr = read_and_transform(d,fileind)
-    x
+    xy = read_and_transform(d,fileind)
+    maybefirst(xy)
 end
 
 """
@@ -283,12 +283,15 @@ Sample one datapoint from the dataset
 """
 function sample_input(d)
     fileind = rand(1:length(d.files))
-    x,y = read_and_transform(d,fileind)
-    x
+    xy = read_and_transform(d,fileind)
+    maybefirst(xy)
 end
 
+maybefirst(x) = x
+maybefirst(x::Tuple) = first(x)
 
 function label2filedict(labels, files)
+    eltype(labels) == Nothing && return Dict(nothing=>files)
     ulabels = unique(labels)
     ufiles = map(ulabels) do l
         files[labels .== l]

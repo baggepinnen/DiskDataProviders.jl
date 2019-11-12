@@ -130,7 +130,7 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
         for TYPE in [ChannelDiskDataProvider{Vector{Float64}, Nothing}, QueueDiskDataProvider{Vector{Float64}, Nothing}]
 
             @info "Testing $TYPE"
-            dataset = TYPE((T,), bs, 5; labels=fill(nothing, length(labs)), files=files)
+            dataset = TYPE((T,), bs, 5; files=files)
             datasett, datasetv = stratifiedobs(dataset, 0.75)
 
             cdata = collect(dataset)
@@ -147,7 +147,7 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
             @info "Dataset ready"
             bw = batchview(dataset)
             @test length(bw) == N ÷ bs
-            @test size.(first(bw)) == ((T,bs),(bs,))
+            @test size.(first(bw)) == ((T,bs),(0,))
 
             @test DiskDataProviders.queuelength(dataset) == 5
             @test nobs(dataset) == N
