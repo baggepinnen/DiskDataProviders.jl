@@ -36,6 +36,8 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
         @test length.(first(dataset)) == (T,1)
 
         t = start_reading(dataset)
+        sleep(2)
+        TYPE <: QueueDiskDataProvider && @show dataset.queue_full.set
         wait(dataset)
         @info "Dataset ready"
         bw = batchview(dataset)
