@@ -190,7 +190,7 @@ Base.wait(d  ::QueueDiskDataProvider) = wait(d.queue_full)
 Base.wait(d  ::ChannelDiskDataProvider) = wait(d.channel)
 Base.take!(d ::ChannelDiskDataProvider) = take!(d.channel)
 
-Base.isready(d  ::QueueDiskDataProvider) = isready(d.queue_full.set)
+Base.isready(d  ::QueueDiskDataProvider) = d.queue_full.set
 Base.isready(d  ::ChannelDiskDataProvider) = isready(d.channel)
 
 macro withlock(l, ex)
