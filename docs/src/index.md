@@ -40,12 +40,14 @@ x,y = first(dataset) # Get one datapoint
 
 t = start_reading(dataset) # this function initiates the reading into the buffer
 
-bw = batchview(dataset)
+wait(dataset) # Wait for the reading to start before proceeding
+
+bw = batchview(dataset);
 
 xb,yb = first(bw) # Get the first batch from the buffer
 
 for (x,y) in bw # Iterate the batches in the batchview
-    ...
+    # do something with the data
 end
 
 stop!(dataset) # Stop reading into the buffer
@@ -57,6 +59,6 @@ stop!(dataset) # Stop reading into the buffer
 ```@index
 ```
 ```@autodocs
-Modules = [DiskDataProviders, LearnBase, MLDataUtils]
+Modules = [DiskDataProviders]
 Private = false
 ```
