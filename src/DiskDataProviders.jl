@@ -5,8 +5,8 @@ import Base.Threads: nthreads, threadid, @spawn, SpinLock
 
 export QueueDiskDataProvider, ChannelDiskDataProvider, label2filedict, start_reading, stop!, BufferedIterator, UnbufferedIterator, labels
 
-Serialization.serialize(filename::AbstractString, data) = open(f->serialize(f, data), filename, "w")
-Serialization.deserialize(filename) = open(f->deserialize(f), filename)
+# Serialization.serialize(filename::AbstractString, data) = open(f->serialize(f, data), filename, "w")
+# Serialization.deserialize(filename) = open(f->deserialize(f), filename)
 
 abstract type AbstractDiskDataProvider{XT,YT} end
 
@@ -30,6 +30,17 @@ Base.@kwdef mutable struct QueueDiskDataProvider{XT,YT,BT} <: AbstractDiskDataPr
     transform = nothing
 end
 
+"""
+    QueueDiskDataProvider{XT, YT}(xsize, batchsize, queuelength::Int; kwargs...) where {XT, YT}
+
+Constructor for QueueDiskDataProvider.
+
+#Arguments:
+- `xsize`: Tuple with sixe of each data point
+- `batchsize`: how many datapoints to put in a batch
+- `queuelength`: length of buffer
+- `kwargs`: to set the other fields of the structure.
+"""
 function QueueDiskDataProvider{XT,YT}(xsize, batchsize, queuelength::Int; kwargs...) where {XT,YT}
     queue   = Vector{Tuple{XT,YT}}(undef, queuelength)
     if XT <: AbstractVector
@@ -46,6 +57,11 @@ function QueueDiskDataProvider{XT,YT}(xsize, batchsize, queuelength::Int; kwargs
         kwargs...)
 end
 
+"""
+    QueueDiskDataProvider(d::QueueDiskDataProvider, inds::AbstractArray)
+
+DOCSTRING
+"""
 function QueueDiskDataProvider(d::QueueDiskDataProvider, inds::AbstractArray)
     QueueDiskDataProvider(
         batchsize            = d.batchsize,
@@ -66,8 +82,6 @@ function QueueDiskDataProvider(d::QueueDiskDataProvider, inds::AbstractArray)
     )
 end
 
-
-
 Base.@kwdef mutable struct ChannelDiskDataProvider{XT,YT,BT} <: AbstractDiskDataProvider{XT,YT}
     batchsize  ::Int           = 8
     labels     ::Vector{YT}
@@ -85,6 +99,17 @@ Base.@kwdef mutable struct ChannelDiskDataProvider{XT,YT,BT} <: AbstractDiskData
     transform = nothing
 end
 
+"""
+    ChannelDiskDataProvider{XT, YT}(xsize, batchsize, queuelength::Int; kwargs...) where {XT, YT}
+
+Constructor for ChannelDiskDataProvider.
+
+#Arguments:
+- `xsize`: Tuple with sixe of each data point
+- `batchsize`: how many datapoints to put in a batch
+- `queuelength`: length of buffer
+- `kwargs`: to set the other fields of the structure.
+"""
 function ChannelDiskDataProvider{XT,YT}(xsize, batchsize, queuelength::Int; kwargs...) where {XT,YT}
     channel = Channel{Tuple{XT,YT}}(queuelength)
     if XT <: AbstractVector
@@ -101,6 +126,11 @@ function ChannelDiskDataProvider{XT,YT}(xsize, batchsize, queuelength::Int; kwar
         kwargs...)
 end
 
+"""
+    ChannelDiskDataProvider(d::ChannelDiskDataProvider, inds::AbstractArray)
+
+DOCSTRING
+"""
 function ChannelDiskDataProvider(d::ChannelDiskDataProvider, inds::AbstractArray)
     ChannelDiskDataProvider(
         batchsize            = d.batchsize,
@@ -128,6 +158,21 @@ for T in (:QueueDiskDataProvider, :ChannelDiskDataProvider)
 end
 
 Base.show(io::IO, d::AbstractDiskDataProvider) = println(io, "$(typeof(d)), length: $(length(d))")
+
+"""
+    queuelength(d)
+
+How long queue (buffer) does the dataset hold
+"""
+queuelength(d)
+
+
+"""
+    labels(d)
+
+Return the labels in the dataset
+"""
+labels(d)
 
 queuelength(d::QueueDiskDataProvider) = length(d.queue)
 queuelength(d::ChannelDiskDataProvider) = d.channel.sz_max
@@ -196,7 +241,11 @@ function populate(d::ChannelDiskDataProvider)
     @info "Stopped reading"
 end
 
+"""
+    start_reading(d::AbstractDiskDataProvider)
 
+Initialize reading into the buffer. This function has to be called before the dataset is used. Reading will continue until you call `stop!` on the dataset. If the dataset is a [`ChannelDiskDataProvider`](@ref), this is a non-issue.
+"""
 function start_reading(d::AbstractDiskDataProvider)
     d.reading = true
     task = @spawn populate(d)
@@ -204,7 +253,11 @@ function start_reading(d::AbstractDiskDataProvider)
     task
 end
 
+"""
+    sample_label(d)
 
+Sample a random label from the dataset
+"""
 function sample_label(d)
     res = d.label_iterator_state === nothing ?  iterate(d.label_iterator) : iterate(d.label_iterator, d.label_iterator_state)
     res === nothing && error("Reached the end of the label iterator")
@@ -212,6 +265,11 @@ function sample_label(d)
     res[1]
 end
 
+"""
+    sample_input(d::AbstractDiskDataProvider, y)
+
+Sample one input with label `y` from the dataset
+"""
 function sample_input(d, y)
     files = d.label2files[y]
     fileind = rand(1:length(files))
@@ -219,6 +277,11 @@ function sample_input(d, y)
     x
 end
 
+"""
+    sample_input(d::AbstractDiskDataProvider)
+
+Sample one input from the dataset
+"""
 function sample_input(d)
     fileind = rand(1:length(d.files))
     x = read_and_transform(d,fileind)
@@ -234,6 +297,11 @@ function label2filedict(labels, files)
     label2files = Dict(Pair.(ulabels, ufiles))
 end
 
+"""
+    sample_random_datapoint(d)
+
+DOCSTRING
+"""
 function sample_random_datapoint(d)
     wait(d.queue_full)
     i = rand(1:length(d.queue))

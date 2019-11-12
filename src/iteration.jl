@@ -16,6 +16,7 @@ function buffered_batch(d::ChannelDiskDataProvider, inds)
     # isready(d.channel) || error("There are no elements in the channel. Either start reading or switch to a QueueDiskDataProvider")
     for (i,j) in enumerate(inds)
         x,y = take!(d)
+        size(d.x_batch,1) == size(x,1) || continue
         copyto_batch!(d.x_batch, x, i)
         d.y_batch[i] = y
     end
@@ -64,10 +65,20 @@ function full_batch(d::AbstractDiskDataProvider{XT,Nothing}) where {XT}
     X
 end
 
+"""
+    struct BufferedIterator{T <: AbstractDiskDataProvider}
+
+Creates an iterator which uses the underlying buffer in the dataset.
+"""
 struct BufferedIterator{T <: AbstractDiskDataProvider}
     d::T
 end
 
+"""
+    struct UnbufferedIterator{T <: AbstractDiskDataProvider}
+
+Creates an iterator which does not use the underlying buffer in the dataset.
+"""
 struct UnbufferedIterator{T <: AbstractDiskDataProvider}
     d::T
 end

@@ -8,3 +8,10 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 LearnBase = "7f8f8fb0-2700-5f03-b4bd-41f8cfc144b6"
 MLDataUtils = "cc2ba9b6-d476-5e6d-8eaf-a92d5412d41d"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
