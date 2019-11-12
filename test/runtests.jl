@@ -47,6 +47,8 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
             @test length(bw) == N ÷ bs
             @test size.(first(bw)) == ((T,bs), (bs,))
 
+            @test DiskDataProviders.queuelength(dataset) == 5
+            @test nobs(dataset) == N
             @test size.(DiskDataProviders.full_batch(dataset)) == ((T,N),(N,))
             stop!(dataset)
 
@@ -99,6 +101,8 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
             @test length(bw) == N ÷ bs
             @test size.(first(bw)) == ((T,width,1,bs), (bs,))
 
+            @test DiskDataProviders.queuelength(dataset) == 5
+            @test nobs(dataset) == N
             @test size.(DiskDataProviders.full_batch(dataset)) == ((T,width,1,N),(N,))
             stop!(dataset)
 
@@ -145,6 +149,8 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
             @test length(bw) == N ÷ bs
             @test size.(first(bw)) == ((T,bs),(bs,))
 
+            @test DiskDataProviders.queuelength(dataset) == 5
+            @test nobs(dataset) == N
             @test size(DiskDataProviders.full_batch(dataset)) == (T,N)
             stop!(dataset)
 
