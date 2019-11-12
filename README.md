@@ -9,17 +9,41 @@
 
 Usage example
 ```julia
-using DiskDataProviders, MLDataUtils
+using DiskDataProviders, Test, Serialization, MLDataUtils
 
-files = # vector of strings to serialized files
-labs = fill(nothing, length(files))
+# === Create some random example data ===
+dirpath = mktempdir()*"/"
+N = 100
+T = 500
+bs = 2
+labs = rand(1:5, N)
+for i = 1:N
+    a = randn(T)
+    serialize(dirpath*"$(i).bin", (a, labs[i]))
+end
 
-transform(x) = # some pre transformation of x
+files = dirpath .* string.(1:N) .* ".bin"
 
-dataset = ChannelDiskDataProvider{Matrix{Float32}, Nothing}(data_size_tuple, 2, channel_length, labels=labs, files=files, transform=transform)
+# === Create a DiskDataProvider ===
+dataset = ChannelDiskDataProvider{Vector{Float64}, Int}((T,), bs, 5; labels=labs, files=files)
 
-t = start_reading(dataset) # Start reading of the data
-istaskstarted(t) && !istaskfailed(t) && wait(datasett)
-bw =  batchview(dataset)
-x,y = first(bw) # The first data point
+
+# === Example usage of the provider ===
+datasett, datasetv = stratifiedobs(dataset, 0.75)
+
+sort(dataset.ulabels) == 1:5
+
+x,y = first(dataset) # Get one datapoint
+
+t = start_reading(dataset) # this function initiates the reading into the buffer
+
+bw = batchview(dataset)
+
+xb,yb = first(bw) # Get the first batch from the buffer
+
+for (x,y) in bw # Iterate the batches in the batchview
+    ...
+end
+
+stop!(dataset) # Stop reading into the buffer
 ```
