@@ -33,5 +33,6 @@ bw = batchview(dataset)
 @test length(bw) == N ÷ bs
 @test size.(first(bw)) == ((T,bs), (bs,))
 
+stop!(dataset)
 
 # @btime dataset[rand(1:length(dataset))]
