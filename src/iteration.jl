@@ -51,12 +51,15 @@ function full_batch(d::AbstractDiskDataProvider{XT,YT}) where {XT,YT}
     X,Y
 end
 
-function unbuffered_batch(d::AbstractDiskDataProvider{XT,Nothing}, inds)::Tuple{Array{eltype(XT),4},Vector{Nothing}} where {XT}
+function unbuffered_batch(d::AbstractDiskDataProvider{XT,Nothing}, inds) where {XT}
     mi,ma = extrema(inds)
     X = similar(d.x_batch, size(d.x_batch)[1:end-1]..., length(inds))
     for (i,j) in enumerate(inds)
         x,y = read_and_transform(d,j)
         copyto_batch!(X, x, i)
+    end
+    if !(XT <: AbstractVector)
+        X = convert(Array{eltype(XT),4}, X)
     end
     X
 end
