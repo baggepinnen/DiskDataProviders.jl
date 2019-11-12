@@ -20,7 +20,7 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
 
     for TYPE in [ChannelDiskDataProvider{Vector{Float64}, Int}, QueueDiskDataProvider{Vector{Float64}, Int}]
 
-        println("Testing $TYPE")
+        @info "Testing $TYPE"
         dataset = TYPE((T,), bs, 5; labels=labs, files=files)
         datasett, datasetv = stratifiedobs(dataset, 0.75)
 
@@ -37,13 +37,15 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
 
         t = start_reading(dataset)
         wait(dataset)
-
+        @info "Dataset ready"
         bw = batchview(dataset)
         @test length(bw) == N ÷ bs
         @test size.(first(bw)) == ((T,bs), (bs,))
 
         stop!(dataset)
-        println("Done with $TYPE")
+        dataset = nothing
+        GC.gc();GC.gc();GC.gc();GC.gc();
+        @info "Done with $TYPE"
     end
 
 end

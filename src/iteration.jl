@@ -83,8 +83,8 @@ struct UnbufferedIterator{T <: AbstractDiskDataProvider}
     d::T
 end
 
-Base.show(io::IOContext, m::MIME, bw::BatchView) = show(io, m, "BatchView{BufferedIterator}")
-Base.show(io::IOContext, m::MIME, bw::BatchView) = show(io, m, "BatchView{UnbufferedIterator}")
+Base.show(io::IOContext, m::MIME{Symbol("text/plain")}, bw::BatchView{<:Any,<:BufferedIterator}) = show(io, m, "BatchView{BufferedIterator} of length $(length(bw))")
+Base.show(io::IOContext, m::MIME{Symbol("text/plain")}, bw::BatchView{<:Any,<:UnbufferedIterator}) = show(io, m, "BatchView{UnbufferedIterator} of length $(length(bw))")
 
 
 function Base.iterate(d::BufferedIterator{<: QueueDiskDataProvider}, state=0)
