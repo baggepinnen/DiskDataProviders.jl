@@ -3,7 +3,7 @@ using MLDataUtils, LearnBase, Dates, Serialization
 
 import Base.Threads: nthreads, threadid, @spawn, SpinLock
 
-export QueueDiskDataProvider, ChannelDiskDataProvider, label2filedict, start_reading, stop!, BufferedIterator, UnbufferedIterator, labels
+export QueueDiskDataProvider, ChannelDiskDataProvider, label2filedict, start_reading, stop!, BufferedIterator, UnbufferedIterator, labels, sample_input, sample_label
 
 export stratifiedobs, batchview
 
@@ -227,7 +227,7 @@ function populate(d::QueueDiskDataProvider)
                 d.position = 1
             end
         end
-        yield()
+        yield() # This is required for tests to pass on travis
     end
     @info "Stopped reading"
 end
@@ -279,7 +279,7 @@ end
 """
     sample_input(d::AbstractDiskDataProvider)
 
-Sample one input from the dataset
+Sample one datapoint from the dataset
 """
 function sample_input(d)
     fileind = rand(1:length(d.files))

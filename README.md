@@ -7,4 +7,6 @@
 
 # DiskDataProviders.jl
 
-For usage example, see [documentation]((https://baggepinnen.github.io/DiskDataProviders.jl/latest))
+This package implements datastructures that are iterable and backed by a buffer that is fed by data from disc. The reading is done on a separate thread, so make sure Julia is started with at least two threads.
+
+For usage example, see [the documentation](https://baggepinnen.github.io/DiskDataProviders.jl/latest)

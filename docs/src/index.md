@@ -8,6 +8,8 @@
 using DiskDataProviders, Test, Serialization, MLDataUtils
 ```
 
+This package implements datastructures that are iterable and backed by a buffer that is fed by data from disc. If Reading and preproccesing data is faster than one training step, it's recommended to use a [`ChannelDiskDataProvider`](@ref), if the training step is fast but reading data takes long time, [`QueueDiskDataProvider`](@ref) is recommended. Both types do the reading on a separate thread, so make sure Julia is started with at least two threads.
+
 Usage example
 ```@example memory
 using DiskDataProviders, Test, Serialization, MLDataUtils
@@ -17,7 +19,7 @@ dirpath = mktempdir()*"/"
 N = 100
 T = 500
 batch_size = 2
-queue_length = 5
+queue_length = 5 # Length of the internal buffer.
 labs = rand(1:5, N)
 for i = 1:N
     a = randn(T)
@@ -29,6 +31,8 @@ files = dirpath .* string.(1:N) .* ".bin"
 # === Create a DiskDataProvider ===
 dataset = ChannelDiskDataProvider{Vector{Float64}, Int}((T,), batch_size, queue_length; labels=labs, files=files)
 ```
+
+The dataset is iterable and can be used in loops etc. One can also create a [`BatchView`](@ref), which is an iterator over batches. The batch size is defined when the DiskDataProvider is created.
 
 ```@repl memory
 # === Example usage of the provider ===
