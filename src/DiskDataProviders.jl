@@ -193,14 +193,6 @@ Base.take!(d ::ChannelDiskDataProvider) = take!(d.channel)
 Base.isready(d  ::QueueDiskDataProvider) = d.queue_full.set
 Base.isready(d  ::ChannelDiskDataProvider) = isready(d.channel)
 
-macro withlock(l, ex)
-    quote
-        lock($(esc(l)))
-        res = $(esc(ex))
-        unlock($(esc(l)))
-        res
-    end
-end
 
 withlock(f, l::AbstractDiskDataProvider) = withlock(f, l.queuelock)
 
@@ -235,6 +227,7 @@ function populate(d::QueueDiskDataProvider)
                 d.position = 1
             end
         end
+        yield()
     end
     @info "Stopped reading"
 end
