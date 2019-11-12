@@ -63,6 +63,10 @@ dataset = ChannelDiskDataProvider((nrows,ncols,nchannels), batchsize, queuelengt
 ```
 notice that you have to provide `nchannels`, which is `1` if the input is a matrix.
 
+
+# Preprocess data
+All functionality in this package operates on serialized, preprocessed data files. Serialized files are fast to read, and storing already preprocessed data cuts down on overhead. This package does currently not support arbitrary file formats. The files are read using Julias built in deserializer.
+
 # Exported functions and types
 ## Index
 
