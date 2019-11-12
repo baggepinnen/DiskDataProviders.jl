@@ -23,7 +23,7 @@ function buffered_batch(d::ChannelDiskDataProvider, inds)
     (d.x_batch, d.y_batch)
 end
 
-function unbuffered_batch(d::AbstractDiskDataProvider{XT,YT}, inds)::Tuple{Array{eltype(XT),4},Vector{YT}} where {XT,YT}
+function unbuffered_batch(d::AbstractDiskDataProvider{XT,YT}, inds) where {XT,YT}
     mi,ma = extrema(inds)
     X = similar(d.x_batch, size(d.x_batch)[1:end-1]..., length(inds))
     Y = similar(d.y_batch, length(inds))
@@ -32,8 +32,13 @@ function unbuffered_batch(d::AbstractDiskDataProvider{XT,YT}, inds)::Tuple{Array
         copyto_batch!(X, x, i)
         Y[i] = y
     end
+    if !(XT <: AbstractVector)
+        X = convert(Array{eltype(XT),4}, X)
+    end
     X,Y
 end
+
+
 
 function full_batch(d::AbstractDiskDataProvider{XT,YT}) where {XT,YT}
     X = similar(d.x_batch, size(d.x_batch)[1:end-1]..., length(d))
@@ -46,7 +51,7 @@ function full_batch(d::AbstractDiskDataProvider{XT,YT}) where {XT,YT}
     X,Y
 end
 
-function unbuffered_batch(d::AbstractDiskDataProvider{XT,Nothing}, inds)::Tuple{Array{eltype(XT),4},Vector{YT}} where {XT}
+function unbuffered_batch(d::AbstractDiskDataProvider{XT,Nothing}, inds)::Tuple{Array{eltype(XT),4},Vector{Nothing}} where {XT}
     mi,ma = extrema(inds)
     X = similar(d.x_batch, size(d.x_batch)[1:end-1]..., length(inds))
     for (i,j) in enumerate(inds)

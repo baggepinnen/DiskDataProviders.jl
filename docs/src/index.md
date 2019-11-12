@@ -8,7 +8,7 @@
 using DiskDataProviders, Test, Serialization, MLDataUtils
 ```
 
-This package implements datastructures that are iterable and backed by a buffer that is fed by data from disc. If Reading and preproccesing data is faster than one training step, it's recommended to use a [`ChannelDiskDataProvider`](@ref), if the training step is fast but reading data takes long time, [`QueueDiskDataProvider`](@ref) is recommended. Both types do the reading on a separate thread, so make sure Julia is started with at least two threads.
+This package implements datastructures that are iterable and backed by a buffer that is fed by data from disk. If Reading and preproccesing data is faster than one training step, it's recommended to use a [`ChannelDiskDataProvider`](@ref), if the training step is fast but reading data takes long time, [`QueueDiskDataProvider`](@ref) is recommended. Both types do the reading on a separate thread, so make sure Julia is started with at least two threads.
 
 Usage example
 ```@example memory
@@ -56,6 +56,12 @@ end
 
 stop!(dataset) # Stop reading into the buffer
 ```
+
+If your data has more dimensions than 1, e.g., inputs are matrices or 3d-tensors, you create a DiskDataProvider like this
+```julia
+dataset = ChannelDiskDataProvider((nrows,ncols,nchannels), batchsize, queuelength; labels=labs, files=files)
+```
+notice that you have to provide `nchannels`, which is `1` if the input is a matrix.
 
 # Exported functions and types
 ## Index

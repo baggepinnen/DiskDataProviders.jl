@@ -283,7 +283,7 @@ Sample one datapoint from the dataset
 """
 function sample_input(d)
     fileind = rand(1:length(d.files))
-    x = read_and_transform(d,fileind)
+    x,y = read_and_transform(d,fileind)
     x
 end
 
