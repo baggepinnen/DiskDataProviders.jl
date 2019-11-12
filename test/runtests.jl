@@ -12,27 +12,37 @@ for i = 1:N
 end
 
 files = dirpath .* string.(1:N) .* ".bin"
+TYPE = QueueDiskDataProvider{Vector{Float64}, Int}
 
-dataset = ChannelDiskDataProvider{Vector{Float64}, Int}((T,), bs, 5; labels=labs, files=files)
-datasett, datasetv = stratifiedobs(dataset, 0.75)
+@time @testset "DiskDataProviders" begin
+    @info "Testing DiskDataProviders"
 
-@test intersect(datasett.files, datasetv.files) == []
-@test Set(union(datasett.files, datasetv.files)) == Set(dataset.files)
 
-@test sort(dataset.ulabels) == 1:5
+    for TYPE in [ChannelDiskDataProvider{Vector{Float64}, Int}, QueueDiskDataProvider{Vector{Float64}, Int}]
 
-cdata = collect(dataset)
-@test length(cdata) == N
+        dataset = TYPE((T,), bs, 5; labels=labs, files=files)
+        datasett, datasetv = stratifiedobs(dataset, 0.75)
 
-@test_throws ErrorException batchview(dataset)
-@test length.(first(dataset)) == (T,1)
+        @test intersect(datasett.files, datasetv.files) == []
+        @test Set(union(datasett.files, datasetv.files)) == Set(dataset.files)
 
-t = start_reading(dataset)
+        @test sort(dataset.ulabels) == 1:5
 
-bw = batchview(dataset)
-@test length(bw) == N ÷ bs
-@test size.(first(bw)) == ((T,bs), (bs,))
+        cdata = collect(dataset)
+        @test length(cdata) == N
 
-stop!(dataset)
+        @test_throws ErrorException batchview(dataset)
+        @test length.(first(dataset)) == (T,1)
 
+        t = start_reading(dataset)
+        wait(dataset)
+
+        bw = batchview(dataset)
+        @test length(bw) == N ÷ bs
+        @test size.(first(bw)) == ((T,bs), (bs,))
+
+        stop!(dataset)
+    end
+
+end
 # @btime dataset[rand(1:length(dataset))]

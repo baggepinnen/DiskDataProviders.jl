@@ -27,7 +27,7 @@ Base.@kwdef mutable struct QueueDiskDataProvider{XT,YT,BT} <: AbstractDiskDataPr
     position   ::Int           = 1
     reading    ::Bool          = false
     queuelock  ::SpinLock      = SpinLock()
-    x_batch    ::Array{Float32,4}
+    x_batch    ::BT
     y_batch    ::Vector{YT}
     transform = nothing
 end
@@ -36,6 +36,8 @@ end
     QueueDiskDataProvider{XT, YT}(xsize, batchsize, queuelength::Int; kwargs...) where {XT, YT}
 
 Constructor for QueueDiskDataProvider.
+
+`{XT, YT}` are the types of the input and output respectively.
 
 #Arguments:
 - `xsize`: Tuple with sixe of each data point
@@ -59,10 +61,11 @@ function QueueDiskDataProvider{XT,YT}(xsize, batchsize, queuelength::Int; kwargs
         kwargs...)
 end
 
+
 """
     QueueDiskDataProvider(d::QueueDiskDataProvider, inds::AbstractArray)
 
-DOCSTRING
+This constructor can be used to create a dataprovider that is a subset of another.
 """
 function QueueDiskDataProvider(d::QueueDiskDataProvider, inds::AbstractArray)
     QueueDiskDataProvider(
@@ -105,6 +108,7 @@ end
     ChannelDiskDataProvider{XT, YT}(xsize, batchsize, queuelength::Int; kwargs...) where {XT, YT}
 
 Constructor for ChannelDiskDataProvider.
+`{XT, YT}` are the types of the input and output respectively.
 
 #Arguments:
 - `xsize`: Tuple with sixe of each data point
@@ -131,7 +135,7 @@ end
 """
     ChannelDiskDataProvider(d::ChannelDiskDataProvider, inds::AbstractArray)
 
-DOCSTRING
+This constructor can be used to create a dataprovider that is a subset of another.
 """
 function ChannelDiskDataProvider(d::ChannelDiskDataProvider, inds::AbstractArray)
     ChannelDiskDataProvider(
@@ -302,7 +306,7 @@ end
 """
     sample_random_datapoint(d)
 
-DOCSTRING
+What it sounds like
 """
 function sample_random_datapoint(d)
     wait(d.queue_full)
