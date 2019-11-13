@@ -3,7 +3,7 @@ using MLDataUtils, LearnBase, Dates, Serialization
 
 import Base.Threads: nthreads, threadid, @spawn, SpinLock
 
-export QueueDiskDataProvider, ChannelDiskDataProvider, label2filedict, start_reading, stop!, BufferedIterator, UnbufferedIterator, labels, sample_input, sample_label
+export QueueDiskDataProvider, ChannelDiskDataProvider, label2filedict, start_reading, stop!, BufferedIterator, UnbufferedIterator, labels, sample_input, sample_label, full_batch
 
 export stratifiedobs, batchview, BatchView, nobs
 

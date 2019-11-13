@@ -41,8 +41,12 @@ function unbuffered_batch(d::AbstractDiskDataProvider{XT,YT}, inds) where {XT,YT
     X,Y
 end
 
+"""
+    full_batch(d::AbstractDiskDataProvider)
 
-
+Returns a matrix with the entire dataset.
+"""
+full_batch(d::AbstractDiskDataProvider)
 function full_batch(d::AbstractDiskDataProvider{XT,YT}) where {XT,YT}
     X = similar(d.x_batch, size(d.x_batch)[1:end-1]..., length(d))
     Y = similar(d.y_batch, length(d))
@@ -180,7 +184,7 @@ MLDataUtils.batchview(d::UnbufferedIterator; size=d.batchsize, kwargs...) = batc
 
 """
     LearnBase.nobs(d)
-    
+
 Get the number of observations in the dataset
 """
 LearnBase.nobs(d)

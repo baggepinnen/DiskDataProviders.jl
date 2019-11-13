@@ -10,6 +10,8 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
 
 This package implements datastructures that are iterable and backed by a buffer that is fed by data from disk. If Reading and preproccesing data is faster than one training step, it's recommended to use a [`ChannelDiskDataProvider`](@ref), if the training step is fast but reading data takes long time, [`QueueDiskDataProvider`](@ref) is recommended. Both types do the reading on a separate thread, so make sure Julia is started with at least two threads.
 
+My personal use case for this package is training convolutional DL models using Flux. This package does not take care of the transfer of data to the GPU, as I have not managed to do this on a separate thread.
+
 ## Supervised vs unsupervised
 If the task is supervised, you may supply labels using the keyword `labels`, see example below. If the dataset has labels, it iterates tuples `(x,y)`. If no labels are supplied, it iterates only inputs `x`. To create an unsupervised dataset with no labels, use `Nothing` as the label type, e.g. `DiskDataProvider{xType, Nothing}`.
 
@@ -35,7 +37,7 @@ files = dirpath .* string.(1:N) .* ".bin"
 dataset = ChannelDiskDataProvider{Vector{Float64}, Int}((T,), batch_size, queue_length; labels=labs, files=files)
 ```
 
-The dataset is iterable and can be used in loops etc. One can also create a [`BatchView`](@ref), which is an iterator over batches. The batch size is defined when the DiskDataProvider is created.
+The dataset is iterable and can be used in loops etc. One can also create a `BatchView`, which is an iterator over batches. The batch size is defined when the DiskDataProvider is created.
 
 ```@repl memory
 # === Example usage of the provider ===
@@ -69,6 +71,16 @@ notice that you have to provide `nchannels`, which is `1` if the input is a matr
 
 # Preprocess data
 All functionality in this package operates on serialized, preprocessed data files. Serialized files are fast to read, and storing already preprocessed data cuts down on overhead. This package does currently not support arbitrary file formats. The files are read using Julias built in deserializer.
+
+
+# Iterators
+- If you simply iterate over an `AbstractDiskDataProvider`, you will iterate over each datapoint in the sequence determined by the vector of file paths. This iteration is not buffered.
+- [`batchview`](@ref) creates a buffered iterator over batches.
+- [`UnbufferedIterator`](@ref) has the same behaviour as iterating over the `AbstractDiskDataProvider` (`UnbufferedIterator` is what is used under the hood).
+- [`BufferedIterator`](@ref) iterates over single datapoints from the buffer.
+- [`full_batch`](@ref) creates one enormous batch of the entire dataset.
+
+Typically, you want to use [`batchview`](@ref) for training. If you have a small enough dataset (e.g. for validation), you may want to use [`full_batch`](@ref), especially if this fits into the GPU memory. Batches are structured according to Flux's notion of a batch, e.g., the last dimension is the batch dimension.
 
 # Exported functions and types
 ## Index
