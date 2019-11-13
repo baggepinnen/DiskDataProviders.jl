@@ -79,6 +79,8 @@ All functionality in this package operates on serialized, preprocessed data file
 - [`UnbufferedIterator`](@ref) has the same behaviour as iterating over the `AbstractDiskDataProvider` (`UnbufferedIterator` is what is used under the hood).
 - [`BufferedIterator`](@ref) iterates over single datapoints from the buffer.
 - [`full_batch`](@ref) creates one enormous batch of the entire dataset.
+- For unsupervised datasets (without labels), the buffers are populated by randomly permuting the data files (shuffling). Using the default file iterator, all datapoints are visited in the same order in each epoch.
+- For supervised datasets, unique labels are cycled through and a datapoint with that label is drawn uniformly at random. 
 
 Typically, you want to use [`batchview`](@ref) for training. If you have a small enough dataset (e.g. for validation), you may want to use [`full_batch`](@ref), especially if this fits into the GPU memory. Batches are structured according to Flux's notion of a batch, e.g., the last dimension is the batch dimension.
 

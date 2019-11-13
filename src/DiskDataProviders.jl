@@ -1,7 +1,8 @@
 module DiskDataProviders
-using MLDataUtils, LearnBase, Dates, Serialization
+using MLDataUtils, LearnBase, Dates, Serialization, Random
 
 import Base.Threads: nthreads, threadid, @spawn, SpinLock
+using Base.Iterators: cycle, peel, partition, take
 
 export QueueDiskDataProvider, ChannelDiskDataProvider, label2filedict, start_reading, stop!, BufferedIterator, UnbufferedIterator, labels, sample_input, sample_label, full_batch
 
@@ -17,20 +18,22 @@ Base.@kwdef mutable struct QueueDiskDataProvider{XT,YT,BT} <: AbstractDiskDataPr
     batchsize  ::Int           = 8
     files      ::Vector{String}
     labels     ::Vector{YT}    = [nothing]
-    length     ::Int           = length(files)
+    length     ::Int           = length(files) # Beware, this prevents the use of function length below this entry
     ulabels    ::Vector{YT}    = unique(labels)
     label2files::Dict{YT,Vector{String}} = label2filedict(labels, files)
     queue_full ::Threads.Event = Threads.Event()
     queue      ::Vector{Tuple{XT,YT}}
-    label_iterator             = Iterators.cycle(unique(labels))
+    label_iterator             = cycle(unique(labels))
     label_iterator_state       = nothing
+    file_iterator              = cycle(randperm(length))
     position   ::Int           = 1
     reading    ::Bool          = false
     queuelock  ::SpinLock      = SpinLock()
     x_batch    ::BT
     y_batch    ::Vector{YT}
-    transform = nothing
+    transform                  = nothing
 end
+
 
 """
     QueueDiskDataProvider{XT, YT}(xsize, batchsize, queuelength::Int; kwargs...) where {XT, YT}
@@ -40,7 +43,7 @@ Constructor for QueueDiskDataProvider.
 `{XT, YT}` are the types of the input and output respectively.
 
 #Arguments:
-- `xsize`: Tuple with sixe of each data point
+- `xsize`: Tuple with size of each data point
 - `batchsize`: how many datapoints to put in a batch
 - `queuelength`: length of buffer, it's a good idea to make this be some integer multiple of the batch size.
 - `kwargs`: to set the other fields of the structure.
@@ -79,6 +82,7 @@ function QueueDiskDataProvider(d::QueueDiskDataProvider{<:Any, YT}, inds::Abstra
         queue                = similar(d.queue),
         label_iterator       = d.label_iterator,
         label_iterator_state = nothing,
+        file_iterator        = cycle(randperm(length(inds))),
         position             = 1,
         reading              = false,
         queuelock            = SpinLock(),
@@ -92,12 +96,13 @@ Base.@kwdef mutable struct ChannelDiskDataProvider{XT,YT,BT} <: AbstractDiskData
     batchsize  ::Int           = 8
     labels     ::Vector{YT}    = [nothing]
     files      ::Vector{String}
-    length     ::Int           = length(files)
+    length     ::Int           = length(files) # Beware, this prevents the use of function length below this entry
     ulabels    ::Vector{YT}    = unique(labels)
     label2files::Dict{YT,Vector{String}} = label2filedict(labels, files)
     channel    ::Channel{Tuple{XT,YT}}
-    label_iterator             = Iterators.cycle(unique(labels))
+    label_iterator             = cycle(unique(labels))
     label_iterator_state       = nothing
+    file_iterator              = cycle(randperm(length))
     reading    ::Bool          = false
     queuelock  ::SpinLock      = SpinLock()
     x_batch    ::BT
@@ -112,7 +117,7 @@ Constructor for ChannelDiskDataProvider.
 `{XT, YT}` are the types of the input and output respectively.
 
 #Arguments:
-- `xsize`: Tuple with sixe of each data point
+- `xsize`: Tuple with size of each data point
 - `batchsize`: how many datapoints to put in a batch
 - `queuelength`: length of buffer, it's a good idea to make this be some integer multiple of the batch size.
 - `kwargs`: to set the other fields of the structure.
@@ -149,6 +154,7 @@ function ChannelDiskDataProvider(d::ChannelDiskDataProvider{<:Any, YT}, inds::Ab
         channel              = deepcopy(d.channel),
         label_iterator       = d.label_iterator,
         label_iterator_state = nothing,
+        file_iterator        = cycle(randperm(length(inds))),
         reading              = false,
         queuelock            = SpinLock(),
         x_batch              = similar(d.x_batch),
@@ -300,13 +306,13 @@ end
 Sample one datapoint from the dataset
 """
 function sample_input(d)
-    fileind = rand(1:length(d.files))
+    fileind, d.file_iterator = peel(d.file_iterator)
     xy = read_and_transform(d,fileind)
     maybefirst(xy)
 end
 
-maybefirst(x) = x
-maybefirst(x::Tuple) = first(x)
+@inline maybefirst(x) = x
+@inline maybefirst(x::Tuple) = first(x)
 
 function label2filedict(labels, files)
     eltype(labels) == Nothing && return Dict(nothing=>files)
@@ -317,12 +323,7 @@ function label2filedict(labels, files)
     label2files = Dict(Pair.(ulabels, ufiles))
 end
 
-"""
-    sample_random_datapoint(d)
-
-What it sounds like
-"""
-function sample_random_datapoint(d)
+function sample_random_datapoint(d::QueueDiskDataProvider)
     wait(d.queue_full)
     i = rand(1:length(d.queue))
     d.queue[i]

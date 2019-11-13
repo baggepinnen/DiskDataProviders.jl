@@ -19,10 +19,10 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
             serialize(dirpath*"$(i).bin", (a, labs[i]))
         end
 
-        # TYPE = QueueDiskDataProvider{Vector{Float64}, Int}
+        TYPE = QueueDiskDataProvider{Vector{Float64}, Int}
         for TYPE in [ChannelDiskDataProvider{Vector{Float64}, Int}, QueueDiskDataProvider{Vector{Float64}, Int}]
 
-            @info "Testing $TYPE"
+            @info "Testing $TYPE" @__LINE__()
             dataset = TYPE((T,), bs, 5; labels=labs, files=files)
             datasett, datasetv = stratifiedobs(dataset, 0.75)
 
@@ -38,6 +38,7 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
             @test length.(first(dataset)) == (T,1)
 
             @show t = start_reading(dataset)
+            @show @__LINE__()
             sleep(1)
             @show t
             TYPE <: QueueDiskDataProvider && @show dataset.queue_full.set
@@ -76,7 +77,7 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
         # TYPE = QueueDiskDataProvider{Vector{Float64}, Int}
         for TYPE in [ChannelDiskDataProvider{Matrix{Float64}, Int}, QueueDiskDataProvider{Matrix{Float64}, Int}]
 
-            @info "Testing $TYPE"
+            @info "Testing $TYPE" @__LINE__()
             dataset = TYPE((T,width,1), bs, 5; labels=labs, files=files)
             datasett, datasetv = stratifiedobs(dataset, 0.75)
 
@@ -92,6 +93,7 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
             @test length.(first(dataset)) == (T*width,1)
 
             @show t = start_reading(dataset)
+            @show @__LINE__()
             sleep(1)
             @show t
             TYPE <: QueueDiskDataProvider && @show dataset.queue_full.set
@@ -129,7 +131,7 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
         TYPE = QueueDiskDataProvider{Vector{Float64}, Nothing}
         for TYPE in [ChannelDiskDataProvider{Vector{Float64}, Nothing}, QueueDiskDataProvider{Vector{Float64}, Nothing}]
 
-            @info "Testing $TYPE"
+            @info "Testing $TYPE" @__LINE__()
             dataset = TYPE((T,), bs, 5; files=files)
             datasett, datasetv = stratifiedobs(dataset, 0.75)
 
@@ -140,6 +142,7 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
             @test length(first(dataset)[1]) == T
 
             @show t = start_reading(dataset)
+            @show @__LINE__()
             sleep(1)
             @show t
             TYPE <: QueueDiskDataProvider && @show dataset.queue_full.set
@@ -152,6 +155,7 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
             @test DiskDataProviders.queuelength(dataset) == 5
             @test nobs(dataset) == N
             @test size(DiskDataProviders.full_batch(dataset)) == (T,N)
+
             stop!(dataset)
 
             cub = collect(batchview(UnbufferedIterator(dataset), 20))
