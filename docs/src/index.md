@@ -76,6 +76,7 @@ All functionality in this package operates on serialized, preprocessed data file
 ```@index
 ```
 ```@autodocs
-Modules = [DiskDataProviders]
+Modules = [DiskDataProviders, MLDataPattern, MLDataUtils, LearnBase]
+Pages = ["DiskDataProviders.jl", "iteration.jl"]
 Private = false
 ```

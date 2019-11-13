@@ -130,6 +130,25 @@ function Base.iterate(ds::DataSubset{<:AbstractDiskDataProvider}, state=nothing)
 end
 
 
+"""
+    stratifiedobs(d::AbstractDiskDataProvider, p::AbstractFloat, args...; kwargs...)
+
+Partition the data into multiple disjoint subsets proportional to the
+value(s) of p. The observations are assignmed to a data subset using
+stratified sampling without replacement. These subsets are then returned
+as a Tuple of subsets, where the first element contains the fraction of
+observations of data that is specified by the first float in p.
+
+ For example, if p is a Float64 itself, then the return-value will be a
+tuple with two elements (i.e. subsets), in which the first element
+contains the fraction of observations specified by p and the second
+element contains the rest. In the following code the first subset train
+will contain around 70% of the observations and the second subset test
+the rest. The key difference to splitobs is that the class distribution
+in y will actively be preserved in train and test.
+
+ `train, test = stratifiedobs(diskdataprovider, 0.7)`
+"""
 function MLDataUtils.stratifiedobs(d::AbstractDiskDataProvider, p::AbstractFloat, args...; kwargs...)
     yt,yv = stratifiedobs(d.labels, p, args...; kwargs...)
     split(d, first(yt.indices), first(yv.indices))
@@ -146,11 +165,25 @@ Base.pairs(d::UnbufferedIterator) = enumerate(d.d)
 Base.pairs(d::AbstractDiskDataProvider) = enumerate(d)
 Base.getindex(d::AbstractDiskDataProvider, i) = read_and_transform(d,i)
 
+"""
+    batchview(d::AbstractDiskDataProvider; size=d.batchsize, kwargs...)
+
+Create a batch iterator that iterates batches with the batch size defined at the creation of the DiskDataProvider.
+"""
+MLDataUtils.batchview(d; size, kwargs...)
+
 function MLDataUtils.batchview(d::AbstractDiskDataProvider; size=d.batchsize, kwargs...)
     isready(d) || error("You can only create a buffered iterator after you have started reading elements into the buffer.")
     batchview(BufferedIterator(d); size=size, kwargs...)
 end
 MLDataUtils.batchview(d::UnbufferedIterator; size=d.batchsize, kwargs...) = batchview(UnbufferedIterator(d); size=size, kwargs...)
+
+"""
+    LearnBase.nobs(d)
+    
+Get the number of observations in the dataset
+"""
+LearnBase.nobs(d)
 
 LearnBase.nobs(d::QueueDiskDataProvider)  = length(d)
 LearnBase.nobs(d::ChannelDiskDataProvider)  = length(d)

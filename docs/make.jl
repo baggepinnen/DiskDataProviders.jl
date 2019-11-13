@@ -1,11 +1,11 @@
 using Documenter, DiskDataProviders
-using DiskDataProviders, LearnBase, MLDataUtils
+using DiskDataProviders, LearnBase, MLDataUtils, MLDataPattern
 
 makedocs(
     sitename = "DiskDataProviders",
     # format = LaTeX(),
     format = Documenter.HTML(prettyurls = haskey(ENV, "CI")),
-    modules = [DiskDataProviders],
+    modules = [DiskDataProviders, MLDataUtils, MLDataPattern, LearnBase],
     pages = ["index.md"]
 )
 

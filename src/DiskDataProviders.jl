@@ -5,7 +5,7 @@ import Base.Threads: nthreads, threadid, @spawn, SpinLock
 
 export QueueDiskDataProvider, ChannelDiskDataProvider, label2filedict, start_reading, stop!, BufferedIterator, UnbufferedIterator, labels, sample_input, sample_label
 
-export stratifiedobs, batchview
+export stratifiedobs, batchview, BatchView, nobs
 
 # Serialization.serialize(filename::AbstractString, data) = open(f->serialize(f, data), filename, "w")
 # Serialization.deserialize(filename) = open(f->deserialize(f), filename)
