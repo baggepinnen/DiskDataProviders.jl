@@ -5,7 +5,7 @@
 # DiskDataProviders
 
 ```@setup memory
-using DiskDataProviders, Test, Serialization, MLDataUtils
+using DiskDataProviders, Test, Serialization
 ```
 
 This package implements datastructures that are iterable and backed by a buffer that is fed by data from disk. If Reading and preproccesing data is faster than one training step, it's recommended to use a [`ChannelDiskDataProvider`](@ref), if the training step is fast but reading data takes long time, [`QueueDiskDataProvider`](@ref) is recommended. Both types do the reading on a separate thread, so make sure Julia is started with at least two threads.
@@ -17,7 +17,7 @@ If the task is supervised, you may supply labels using the keyword `labels`, see
 
 ## Usage example
 ```@example memory
-using DiskDataProviders, Test, Serialization, MLDataUtils
+using DiskDataProviders, Test, Serialization
 
 # === Create some random example data ===
 dirpath = mktempdir()*"/"
@@ -37,7 +37,7 @@ files = dirpath .* string.(1:N) .* ".bin"
 dataset = ChannelDiskDataProvider{Vector{Float64}, Int}((T,), batch_size, queue_length; labels=labs, files=files)
 ```
 
-The dataset is iterable and can be used in loops etc. One can also create a `BatchView`, which is an iterator over batches. The batch size is defined when the DiskDataProvider is created.
+The dataset is iterable and can be used in loops etc. One can also create a [`batchview`](@ref DiskDataProviders.batchview), which is an iterator over batches. The batch size is defined when the DiskDataProvider is created.
 
 ```@repl memory
 # === Example usage of the provider ===
@@ -51,7 +51,7 @@ t = start_reading(dataset) # this function initiates the reading into the buffer
 
 wait(dataset) # Wait for the reading to start before proceeding
 
-bw = batchview(dataset);
+bw = batchview(dataset)
 
 xb,yb = first(bw) # Get the first batch from the buffer
 
@@ -75,14 +75,15 @@ All functionality in this package operates on serialized, preprocessed data file
 
 # Iterators
 - If you simply iterate over an `AbstractDiskDataProvider`, you will iterate over each datapoint in the sequence determined by the vector of file paths. This iteration is not buffered.
-- [`batchview`](@ref) creates a buffered iterator over batches.
-- [`UnbufferedIterator`](@ref) has the same behaviour as iterating over the `AbstractDiskDataProvider` (`UnbufferedIterator` is what is used under the hood).
-- [`BufferedIterator`](@ref) iterates over single datapoints from the buffer.
+- [`batchview`](@ref DiskDataProviders.batchview) creates a buffered iterator over batches.
+- [`unbuffered`](@ref) has the same behaviour as iterating over the `AbstractDiskDataProvider`.
+- [`buffered`](@ref) iterates over single datapoints from the buffer.
 - [`full_batch`](@ref) creates one enormous batch of the entire dataset.
+- [`unbuffered_batchview`](@ref) Iterates over batches, unbuffered.
 - For unsupervised datasets (without labels), the buffers are populated by randomly permuting the data files (shuffling). Using the default file iterator, all datapoints are visited in the same order in each epoch.
-- For supervised datasets, unique labels are cycled through and a datapoint with that label is drawn uniformly at random. 
+- For supervised datasets, unique labels are cycled through and a datapoint with that label is drawn uniformly at random.
 
-Typically, you want to use [`batchview`](@ref) for training. If you have a small enough dataset (e.g. for validation), you may want to use [`full_batch`](@ref), especially if this fits into the GPU memory. Batches are structured according to Flux's notion of a batch, e.g., the last dimension is the batch dimension.
+Typically, you want to use [`batchview`](@ref DiskDataProviders.batchview) for training. If you have a small enough dataset (e.g. for validation), you may want to use [`full_batch`](@ref), especially if this fits into the GPU memory. Batches are structured according to Flux's notion of a batch, e.g., the last dimension is the batch dimension.
 
 # Exported functions and types
 ## Index
@@ -90,7 +91,7 @@ Typically, you want to use [`batchview`](@ref) for training. If you have a small
 ```@index
 ```
 ```@autodocs
-Modules = [DiskDataProviders, MLDataPattern, MLDataUtils, LearnBase]
+Modules = [DiskDataProviders, MLDataPattern]
 Pages = ["DiskDataProviders.jl", "iteration.jl"]
 Private = false
 ```

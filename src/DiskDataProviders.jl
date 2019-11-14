@@ -1,12 +1,14 @@
 module DiskDataProviders
-using MLDataUtils, LearnBase, Dates, Serialization, Random
+using Dates, Serialization, Random, ResumableFunctions
 
 import Base.Threads: nthreads, threadid, @spawn, SpinLock
 using Base.Iterators: cycle, peel, partition, take
 
-export QueueDiskDataProvider, ChannelDiskDataProvider, label2filedict, start_reading, stop!, BufferedIterator, UnbufferedIterator, labels, sample_input, sample_label, full_batch
+export QueueDiskDataProvider, ChannelDiskDataProvider, label2filedict, start_reading, stop!, buffered, unbuffered, batchview, unbuffered_batchview, labels, sample_input, sample_label, full_batch
 
-export stratifiedobs, batchview, BatchView, nobs
+import MLDataUtils
+using MLDataUtils: stratifiedobs
+export stratifiedobs, batchview
 
 # Serialization.serialize(filename::AbstractString, data) = open(f->serialize(f, data), filename, "w")
 # Serialization.deserialize(filename) = open(f->deserialize(f), filename)
