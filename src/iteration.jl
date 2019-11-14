@@ -111,11 +111,11 @@ unbuffered(d::AbstractDiskDataProvider)
 end
 
 """
-    batchview(d::AbstractDiskDataProvider; size=d.batchsize, kwargs...)
+    batchview(d::AbstractDiskDataProvider, size=d.batchsize; kwargs...)
 
 Create a batch iterator that iterates batches with the batch size defined at the creation of the DiskDataProvider.
 """
-batchview(d; size, kwargs...)
+batchview(d::AbstractDiskDataProvider)
 
 @resumable function batchview(d::AbstractDiskDataProvider, size=d.batchsize)
     isready(d) || error("You can only create a buffered iterator after you have started reading elements into the buffer.")
