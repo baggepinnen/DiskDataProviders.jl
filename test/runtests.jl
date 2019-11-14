@@ -1,5 +1,4 @@
-using DiskDataProviders, Test, Serialization, MLDataUtils
-
+using DiskDataProviders, Test, Serialization
 
 
 @time @testset "DiskDataProviders" begin
@@ -24,7 +23,7 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
 
             @info "Testing $TYPE" @__LINE__()
             dataset = TYPE((T,), bs, 5; labels=labs, files=files)
-            datasett, datasetv = stratifiedobs(dataset, 0.75)
+            datasett, datasetv = DiskDataProviders.stratifiedobs(dataset, 0.75)
 
             @test intersect(datasett.files, datasetv.files) == []
             @test Set(union(datasett.files, datasetv.files)) == Set(dataset.files)
@@ -33,8 +32,9 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
 
             cdata = collect(dataset)
             @test length(cdata) == N
+            @test cdata == collect(unbuffered(dataset))
 
-            @test_throws ErrorException batchview(dataset)
+            @test_throws ErrorException first(batchview(dataset))
             @test length.(first(dataset)) == (T,1)
 
             @show t = start_reading(dataset)
@@ -45,17 +45,16 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
             wait(dataset)
             @info "Dataset ready"
             bw = batchview(dataset)
-            @test length(bw) == N ÷ bs
+            @test length(collect(bw)) == N ÷ bs
             @test size.(first(bw)) == ((T,bs), (bs,))
 
             @test DiskDataProviders.queuelength(dataset) == 5
-            @test nobs(dataset) == N
             @test size.(DiskDataProviders.full_batch(dataset)) == ((T,N),(N,))
             stop!(dataset)
 
-            cub = collect(batchview(UnbufferedIterator(dataset), 20))
-            @test length(cub) == N ÷ 20
-
+            cub = collect(unbuffered_batchview(dataset))
+            @test length(cub) == N ÷ bs
+            @test size.(cub[1]) == ((T,bs),(2,))
 
 
             dataset = nothing
@@ -74,7 +73,7 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
             serialize(dirpath*"$(i).bin", (a, labs[i]))
         end
 
-        # TYPE = QueueDiskDataProvider{Vector{Float64}, Int}
+        TYPE = QueueDiskDataProvider{Matrix{Float64}, Int}
         for TYPE in [ChannelDiskDataProvider{Matrix{Float64}, Int}, QueueDiskDataProvider{Matrix{Float64}, Int}]
 
             @info "Testing $TYPE" @__LINE__()
@@ -89,7 +88,7 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
             cdata = collect(dataset)
             @test length(cdata) == N
 
-            @test_throws ErrorException batchview(dataset)
+            @test_throws ErrorException first(batchview(dataset))
             @test length.(first(dataset)) == (T*width,1)
 
             @show t = start_reading(dataset)
@@ -100,18 +99,16 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
             wait(dataset)
             @info "Dataset ready"
             bw = batchview(dataset)
-            @test length(bw) == N ÷ bs
+            @test length(collect(bw)) == N ÷ bs
             @test size.(first(bw)) == ((T,width,1,bs), (bs,))
 
             @test DiskDataProviders.queuelength(dataset) == 5
-            @test nobs(dataset) == N
             @test size.(DiskDataProviders.full_batch(dataset)) == ((T,width,1,N),(N,))
             stop!(dataset)
 
-            cub = collect(batchview(UnbufferedIterator(dataset), 20))
-            @test length(cub) == N ÷ 20
-
-
+            cub = collect(unbuffered_batchview(dataset))
+            @test length(cub) == N ÷ bs
+            @test size.(cub[1]) == ((T,width,1,bs),(2,))
 
             dataset = nothing
             GC.gc();GC.gc();GC.gc();GC.gc();
@@ -138,7 +135,7 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
             cdata = collect(dataset)
             @test length(cdata) == N
 
-            @test_throws ErrorException batchview(dataset)
+            @test_throws ErrorException first(batchview(dataset))
             @test length(first(dataset)[1]) == T
 
             @show t = start_reading(dataset)
@@ -149,18 +146,17 @@ using DiskDataProviders, Test, Serialization, MLDataUtils
             wait(dataset)
             @info "Dataset ready"
             bw = batchview(dataset)
-            @test length(bw) == N ÷ bs
+            @test length(collect(bw)) == N ÷ bs
             @test size.(first(bw)) == ((T,bs),(0,))
 
             @test DiskDataProviders.queuelength(dataset) == 5
-            @test nobs(dataset) == N
             @test size(DiskDataProviders.full_batch(dataset)) == (T,N)
 
             stop!(dataset)
 
-            cub = collect(batchview(UnbufferedIterator(dataset), 20))
-            @test length(cub) == N ÷ 20
-
+            cub = collect(unbuffered_batchview(dataset))
+            @test length(cub) == N ÷ bs
+            @test size(cub[1]) == (T,bs)
 
 
             dataset = nothing

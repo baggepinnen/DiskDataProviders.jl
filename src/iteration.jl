@@ -7,7 +7,7 @@ copyto_batch!(dst::Matrix,src,i)  = dst[:,i] .= src
 
 function buffered_batch(d::QueueDiskDataProvider{<:Any, YT}, inds) where YT
     for (i,j) in enumerate(inds)
-        x,y = d.queue[j]
+        x,y = d.queue[(j-1)%queuelength(d) + 1]
         copyto_batch!(d.x_batch, x, i)
         YT === Nothing || (d.y_batch[i] = y)
     end
@@ -81,56 +81,65 @@ function full_batch(d::AbstractDiskDataProvider{XT,Nothing}) where {XT}
 end
 
 """
-    struct BufferedIterator{T <: AbstractDiskDataProvider}
+    buffered(d::AbstractDiskDataProvider)
 
 Creates an iterator which uses the underlying buffer in the dataset.
 """
-struct BufferedIterator{T <: AbstractDiskDataProvider}
-    d::T
+buffered(d::AbstractDiskDataProvider)
+@resumable function buffered(d::QueueDiskDataProvider)
+    for state in 1:length(d)
+        @yield sample_random_datapoint(d)
+    end
+end
+
+@resumable function buffered(d::ChannelDiskDataProvider)
+    for state in 1:length(d)
+        @yield take!(d)
+    end
 end
 
 """
-    struct UnbufferedIterator{T <: AbstractDiskDataProvider}
+    unbuffered(d::AbstractDiskDataProvider)
 
 Creates an iterator which does not use the underlying buffer in the dataset.
 """
-struct UnbufferedIterator{T <: AbstractDiskDataProvider}
-    d::T
+unbuffered(d::AbstractDiskDataProvider)
+@resumable function unbuffered(d::AbstractDiskDataProvider)
+    for i in 1:length(d)
+        @yield d[i]
+    end
 end
 
-Base.show(io::IOContext, m::MIME{Symbol("text/plain")}, bw::BatchView{<:Any,<:BufferedIterator}) = show(io, m, "BatchView{BufferedIterator} of length $(length(bw))")
-Base.show(io::IOContext, m::MIME{Symbol("text/plain")}, bw::BatchView{<:Any,<:UnbufferedIterator}) = show(io, m, "BatchView{UnbufferedIterator} of length $(length(bw))")
+"""
+    batchview(d::AbstractDiskDataProvider; size=d.batchsize, kwargs...)
 
+Create a batch iterator that iterates batches with the batch size defined at the creation of the DiskDataProvider.
+"""
+batchview(d; size, kwargs...)
 
-function Base.iterate(d::BufferedIterator{<: QueueDiskDataProvider}, state=0)
-    state == length(d) && return nothing
-    (sample_random_datapoint(d),state+1)
+@resumable function batchview(d::AbstractDiskDataProvider, size=d.batchsize)
+    isready(d) || error("You can only create a buffered iterator after you have started reading elements into the buffer.")
+    for inds in Iterators.partition(1:length(d), size)
+        @yield buffered_batch(d, inds)
+    end
+end
+"""
+    unbuffered_batchview(d::AbstractDiskDataProvider, size=d.batchsize)
+
+Iterate unbuffered batches. See also [`batchview`](@ref)
+"""
+unbuffered_batchview(d::AbstractDiskDataProvider, size=d.batchsize)
+
+@resumable function unbuffered_batchview(d::AbstractDiskDataProvider, size=d.batchsize)
+    for inds in Iterators.partition(1:length(d), size)
+        @yield unbuffered_batch(d, inds)
+    end
 end
 
-function Base.iterate(d::BufferedIterator{<: ChannelDiskDataProvider}, state=0)
-    state == length(d) && return nothing
-    (take!(d.d),state+1)
-end
 
-function Base.iterate(d::UnbufferedIterator, state=1)
-    state > length(d.d) && (return nothing)
-    d.d[state], state+1
-end
-
-function Base.iterate(d::AbstractDiskDataProvider, args...)
-    iterate(UnbufferedIterator(d), args...)
-end
-
-# function Base.iterate(ubw::UnbufferedIterator, state)
-#     res = iterate(ubw.inner, state)
-#     res === nothing && return nothing
-#     unbuffered_batch(ubw.d.d, res[1]), res[2]
-# end
-
-function Base.iterate(ds::DataSubset{<:AbstractDiskDataProvider}, state=nothing)
-    inds = ds.indices
-    d = ds.data
-    buffered_batch(d,inds)
+function Base.iterate(d::AbstractDiskDataProvider, state=1)
+    state > length(d) && return nothing
+    return d[state], state+1
 end
 
 
@@ -160,46 +169,8 @@ end
 
 
 Base.length(d::AbstractDiskDataProvider) = d.length
-Base.length(d::BufferedIterator) = d.d.length
-Base.length(d::UnbufferedIterator) = length(d.d)
-
-
-# Base.pairs(d::BufferedIterator) = enumerate(d)
-Base.pairs(d::UnbufferedIterator) = enumerate(d.d)
 Base.pairs(d::AbstractDiskDataProvider) = enumerate(d)
 Base.getindex(d::AbstractDiskDataProvider, i) = read_and_transform(d,i)
 
-"""
-    batchview(d::AbstractDiskDataProvider; size=d.batchsize, kwargs...)
 
-Create a batch iterator that iterates batches with the batch size defined at the creation of the DiskDataProvider.
-"""
-MLDataUtils.batchview(d; size, kwargs...)
-
-function MLDataUtils.batchview(d::AbstractDiskDataProvider; size=d.batchsize, kwargs...)
-    isready(d) || error("You can only create a buffered iterator after you have started reading elements into the buffer.")
-    batchview(BufferedIterator(d); size=size, kwargs...)
-end
-MLDataUtils.batchview(d::UnbufferedIterator; size=d.batchsize, kwargs...) = batchview(UnbufferedIterator(d); size=size, kwargs...)
-
-"""
-    LearnBase.nobs(d)
-
-Get the number of observations in the dataset
-"""
-LearnBase.nobs(d)
-
-LearnBase.nobs(d::QueueDiskDataProvider)  = length(d)
-LearnBase.nobs(d::ChannelDiskDataProvider)  = length(d)
-
-LearnBase.nobs(d::BufferedIterator) = length(d.d)
-LearnBase.getobs(d::BufferedIterator, inds) = buffered_batch(d.d,inds)
-LearnBase.datasubset(d::BufferedIterator, inds, ::ObsDim.Undefined) = buffered_batch(d.d,inds)
-
-LearnBase.nobs(d::UnbufferedIterator) = length(d.d)
-LearnBase.getobs(d::UnbufferedIterator, inds) = unbuffered_batch(d.d,inds)
-LearnBase.datasubset(d::UnbufferedIterator, inds, ::ObsDim.Undefined) = unbuffered_batch(d.d,inds)
-
-
-Base.show(io::IO, d::BufferedIterator) = println(io, "$(typeof(d)), length: $(length(d.d))")
-Base.show(io::IO, d::UnbufferedIterator) = println(io, "$(typeof(d)), length: $(length(d.d))")
+# Base.length(d::ResumableFunctions.FiniteStateMachineIterator) = length(d.d) # This is type piracy

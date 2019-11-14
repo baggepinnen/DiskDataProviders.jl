@@ -5,7 +5,7 @@
 # DiskDataProviders
 
 ```@setup memory
-using DiskDataProviders, Test, Serialization, MLDataUtils
+using DiskDataProviders, Test, Serialization
 ```
 
 This package implements datastructures that are iterable and backed by a buffer that is fed by data from disk. If Reading and preproccesing data is faster than one training step, it's recommended to use a [`ChannelDiskDataProvider`](@ref), if the training step is fast but reading data takes long time, [`QueueDiskDataProvider`](@ref) is recommended. Both types do the reading on a separate thread, so make sure Julia is started with at least two threads.
@@ -17,7 +17,7 @@ If the task is supervised, you may supply labels using the keyword `labels`, see
 
 ## Usage example
 ```@example memory
-using DiskDataProviders, Test, Serialization, MLDataUtils
+using DiskDataProviders, Test, Serialization
 
 # === Create some random example data ===
 dirpath = mktempdir()*"/"
@@ -80,7 +80,7 @@ All functionality in this package operates on serialized, preprocessed data file
 - [`BufferedIterator`](@ref) iterates over single datapoints from the buffer.
 - [`full_batch`](@ref) creates one enormous batch of the entire dataset.
 - For unsupervised datasets (without labels), the buffers are populated by randomly permuting the data files (shuffling). Using the default file iterator, all datapoints are visited in the same order in each epoch.
-- For supervised datasets, unique labels are cycled through and a datapoint with that label is drawn uniformly at random. 
+- For supervised datasets, unique labels are cycled through and a datapoint with that label is drawn uniformly at random.
 
 Typically, you want to use [`batchview`](@ref) for training. If you have a small enough dataset (e.g. for validation), you may want to use [`full_batch`](@ref), especially if this fits into the GPU memory. Batches are structured according to Flux's notion of a batch, e.g., the last dimension is the batch dimension.
 
@@ -90,7 +90,7 @@ Typically, you want to use [`batchview`](@ref) for training. If you have a small
 ```@index
 ```
 ```@autodocs
-Modules = [DiskDataProviders, MLDataPattern, MLDataUtils, LearnBase]
+Modules = [DiskDataProviders, MLDataPattern]
 Pages = ["DiskDataProviders.jl", "iteration.jl"]
 Private = false
 ```
