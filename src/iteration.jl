@@ -141,7 +141,7 @@ end
 
 function Base.iterate(d::AbstractDiskDataProvider)
     d1 = d[1]
-    ch = Channel{typeof(d1)}(4, spawn=true) do ch
+    ch = Channel{typeof(d1)}(2, spawn=true) do ch
         foreach(i->put!(ch, d[i]), 2:length(d))
     end
     return d1, (2,ch)
