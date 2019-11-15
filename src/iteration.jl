@@ -187,4 +187,10 @@ Base.pairs(d::AbstractDiskDataProvider) = enumerate(d)
 Base.getindex(d::AbstractDiskDataProvider, i) = read_and_transform(d,i)
 
 
-# Base.length(d::ResumableFunctions.FiniteStateMachineIterator) = length(d.d) # This is type piracy
+function Base.length(d::ResumableFunctions.FiniteStateMachineIterator)
+    if hasfield(typeof(d), :d) && d.d isa AbstractDiskDataProvider
+        return length(d.d)
+    else
+        throw(MethodError(Base.length, (ResumableFunctions.FiniteStateMachineIterator, )))
+    end
+end
