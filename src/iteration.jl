@@ -5,13 +5,15 @@ read_and_transform(d::AbstractDiskDataProvider, fileindex) = d.transform === not
 copyto_batch!(dst::AbstractArray{T,4},src,i) where T = dst[:,:,:,i] .= src
 copyto_batch!(dst::Matrix,src,i)  = dst[:,i] .= src
 
+
+
 function buffered_batch(d::QueueDiskDataProvider{<:Any, YT}, inds) where YT
     for (i,j) in enumerate(inds)
         x,y = d.queue[(j-1)%queuelength(d) + 1]
         copyto_batch!(d.x_batch, x, i)
         YT === Nothing || (d.y_batch[i] = y)
     end
-    (d.x_batch, d.y_batch)
+    YT === Nothing ? d.x_batch : (d.x_batch, d.y_batch)
 end
 
 # inds are ignored for this iterator
@@ -23,7 +25,7 @@ function buffered_batch(d::ChannelDiskDataProvider{<:Any, YT}, inds) where YT
         copyto_batch!(d.x_batch, x, i)
         YT === Nothing || (d.y_batch[i] = y)
     end
-    (d.x_batch, d.y_batch)
+    YT === Nothing ? d.x_batch : (d.x_batch, d.y_batch)
 end
 
 function unbuffered_batch(d::AbstractDiskDataProvider{XT,YT}, inds) where {XT,YT}
@@ -137,10 +139,22 @@ unbuffered_batchview(d::AbstractDiskDataProvider, size=d.batchsize)
 end
 
 
-function Base.iterate(d::AbstractDiskDataProvider, state=1)
-    state > length(d) && return nothing
-    return d[state], state+1
+function Base.iterate(d::AbstractDiskDataProvider)
+    d1 = d[1]
+    ch = Channel{typeof(d1)}(4, spawn=true) do ch
+        foreach(i->put!(ch, d[i]), 2:length(d))
+    end
+    return d1, (2,ch)
 end
+
+function Base.iterate(d::AbstractDiskDataProvider, state)
+    i,ch = state
+    (i > length(d) || !isopen(ch)) && return nothing
+    return take!(ch), (i+1, ch)
+end
+
+Base.eltype(d::AbstractDiskDataProvider{XT,YT}) where {XT,YT} = Tuple{XT,YT}
+Base.eltype(d::AbstractDiskDataProvider{XT,Nothing}) where {XT} = XT
 
 
 """
@@ -163,7 +177,7 @@ in y will actively be preserved in train and test.
  `train, test = stratifiedobs(diskdataprovider, 0.7)`
 """
 function MLDataUtils.stratifiedobs(d::AbstractDiskDataProvider, p::AbstractFloat, args...; kwargs...)
-    yt,yv = stratifiedobs(d.labels, p, args...; kwargs...)
+    yt,yv = MLDataUtils.stratifiedobs(d.labels, p, args...; kwargs...)
     split(d, first(yt.indices), first(yv.indices))
 end
 

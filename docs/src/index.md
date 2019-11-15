@@ -74,9 +74,9 @@ All functionality in this package operates on serialized, preprocessed data file
 
 
 # Iterators
-- If you simply iterate over an `AbstractDiskDataProvider`, you will iterate over each datapoint in the sequence determined by the vector of file paths. This iteration is not buffered.
+- If you simply iterate over an `AbstractDiskDataProvider`, you will iterate over each datapoint in the sequence determined by the vector of file paths. This iteration is buffered by a buffer unique to the iterator.
 - [`batchview`](@ref DiskDataProviders.batchview) creates a buffered iterator over batches.
-- [`unbuffered`](@ref) has the same behaviour as iterating over the `AbstractDiskDataProvider`.
+- [`unbuffered`](@ref) an iterator that is not buffered.
 - [`buffered`](@ref) iterates over single datapoints from the buffer.
 - [`full_batch`](@ref) creates one enormous batch of the entire dataset.
 - [`unbuffered_batchview`](@ref) Iterates over batches, unbuffered.
