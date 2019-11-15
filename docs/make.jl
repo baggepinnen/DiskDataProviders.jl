@@ -1,5 +1,5 @@
-using Documenter, DiskDataProviders
-using DiskDataProviders, MLDataPattern
+using Documenter, DiskDataProviders, Random
+using MLDataPattern
 
 makedocs(
     sitename = "DiskDataProviders",

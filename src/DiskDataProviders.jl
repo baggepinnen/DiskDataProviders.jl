@@ -4,7 +4,7 @@ using Dates, Serialization, Random, ResumableFunctions
 import Base.Threads: nthreads, threadid, @spawn, SpinLock
 using Base.Iterators: cycle, peel, partition, take
 
-export QueueDiskDataProvider, ChannelDiskDataProvider, label2filedict, start_reading, stop!, buffered, unbuffered, batchview, unbuffered_batchview, labels, sample_input, sample_label, full_batch
+export QueueDiskDataProvider, ChannelDiskDataProvider, label2filedict, start_reading, stop!, buffered, unbuffered, batchview, unbuffered_batchview, labels, sample_input, sample_label, full_batch, shuffle, shuffle!
 
 import MLDataUtils
 using MLDataUtils: stratifiedobs
@@ -167,18 +167,47 @@ end
 
 for T in (:QueueDiskDataProvider, :ChannelDiskDataProvider)
     @eval begin
+        """
+            Base.split(d::AbstractDiskDataProvider,i1,i2)
+
+        Split the dataset into two parts defined by vectors of indices
+        """
         function Base.split(d::$(T),i1,i2)
             $(T)(d,i1), $(T)(d,i2)
         end
+        """
+            Base.getindex(d::AbstractDiskDataProvider, inds::AbstractArray)
+        Get a dataset corresponding to a subset of the file indices
+        """
+        Base.getindex(d::$(T), inds::AbstractArray) = $(T)(d, inds)
     end
 end
+
+"""
+    Random.shuffle!(d::AbstractDiskDataProvider)
+
+Shuffle the file order in place.
+"""
+Random.shuffle!(d::AbstractDiskDataProvider) = shuffle!(d.files)
+
+"""
+    Random.shuffle(d::AbstractDiskDataProvider)
+
+Return a new dataset with the file order shuffled
+"""
+function Random.shuffle(d::AbstractDiskDataProvider)
+    d = deepcopy(d)
+    shuffle!(d.files)
+    d
+end
+
 
 Base.show(io::IO, d::AbstractDiskDataProvider) = println(io, "$(typeof(d)), length: $(length(d))")
 
 """
     queuelength(d)
 
-How long queue (buffer) does the dataset hold
+How long queue (buffer) does the dataset hold? Call this function and you'll know
 """
 queuelength(d)
 
@@ -186,7 +215,7 @@ queuelength(d)
 """
     labels(d)
 
-Return the labels in the dataset
+Return numeric labes in the dataset, i.e., strings are converted to integers etc.
 """
 labels(d)
 

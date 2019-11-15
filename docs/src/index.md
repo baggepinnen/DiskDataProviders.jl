@@ -85,6 +85,14 @@ All functionality in this package operates on serialized, preprocessed data file
 
 Typically, you want to use [`batchview`](@ref DiskDataProviders.batchview) for training. If you have a small enough dataset (e.g. for validation), you may want to use [`full_batch`](@ref), especially if this fits into the GPU memory. Batches are structured according to Flux's notion of a batch, e.g., the last dimension is the batch dimension.
 
+# Methods manipulating datasets
+```@docs
+Base.getindex(d::ChannelDiskDataProvider, inds::AbstractArray)
+Base.split(d::ChannelDiskDataProvider, inds1::AbstractArray, inds2::AbstractArray)
+Random.shuffle(d::DiskDataProviders.AbstractDiskDataProvider)
+Random.shuffle!(d::DiskDataProviders.AbstractDiskDataProvider)
+```
+
 # Exported functions and types
 ## Index
 

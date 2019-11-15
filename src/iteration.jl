@@ -167,12 +167,11 @@ as a Tuple of subsets, where the first element contains the fraction of
 observations of data that is specified by the first float in p.
 
  For example, if p is a Float64 itself, then the return-value will be a
-tuple with two elements (i.e. subsets), in which the first element
+tuple with two datasets (i.e. subsets), in which the first element
 contains the fraction of observations specified by p and the second
 element contains the rest. In the following code the first subset train
 will contain around 70% of the observations and the second subset test
-the rest. The key difference to splitobs is that the class distribution
-in y will actively be preserved in train and test.
+the rest. 
 
  `train, test = stratifiedobs(diskdataprovider, 0.7)`
 """

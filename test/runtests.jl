@@ -24,8 +24,10 @@ ontravis() = haskey(ENV, "TRAVIS_BRANCH")
         for TYPE in [ChannelDiskDataProvider{Vector{Float64}, Int}, QueueDiskDataProvider{Vector{Float64}, Int}]
 
             @info "Testing $TYPE" @__LINE__()
-            dataset = TYPE((T,), bs, 5; labels=labs, files=files)
+            dataset = TYPE((T,), bs, 5; labels=copy(labs), files=files)
             datasett, datasetv = DiskDataProviders.stratifiedobs(dataset, 0.75)
+
+            @test_skip labels(dataset) == labs
 
             @test intersect(datasett.files, datasetv.files) == []
             @test Set(union(datasett.files, datasetv.files)) == Set(dataset.files)
@@ -47,6 +49,7 @@ ontravis() = haskey(ENV, "TRAVIS_BRANCH")
             wait(dataset)
             @info "Dataset ready"
             bw = batchview(dataset)
+            @test_broken length(bw) == N ÷ bs
             @test length(collect(bw)) == N ÷ bs
             @test ontravis() || size.(first(bw)) == ((T,bs), (bs,))
 
@@ -58,6 +61,14 @@ ontravis() = haskey(ENV, "TRAVIS_BRANCH")
             @test length(cub) == N ÷ bs
             @test size.(cub[1]) == ((T,bs),(2,))
 
+            @testset "Suffle" begin
+                @info "Testing Suffle"
+
+                d2 = shuffle(dataset)
+                @test d2.files != dataset.files
+                shuffle!(dataset)
+                @test dataset.files[1] != "1.bin" || dataset.files[2] != "2.bin"
+            end
 
             dataset = nothing
             GC.gc();GC.gc();GC.gc();GC.gc();
