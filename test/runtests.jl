@@ -124,7 +124,7 @@ ontravis() = haskey(ENV, "TRAVIS_BRANCH")
 
         for i = 1:N
             a = randn(T)
-            serialize(dirpath*"$(i).bin", (a, nothing))
+            serialize(dirpath*"$(i).bin", a)
         end
 
         TYPE = QueueDiskDataProvider{Vector{Float64}, Nothing}
@@ -138,7 +138,7 @@ ontravis() = haskey(ENV, "TRAVIS_BRANCH")
             @test length(cdata) == N
 
             @test_throws ErrorException first(batchview(dataset))
-            @test length(first(dataset)[1]) == T
+            @test length(first(dataset)) == T
 
             @show t = start_reading(dataset)
             @show @__LINE__()
@@ -149,7 +149,7 @@ ontravis() = haskey(ENV, "TRAVIS_BRANCH")
             @info "Dataset ready"
             bw = batchview(dataset)
             @test length(collect(bw)) == N ÷ bs
-            @test ontravis() || size.(first(bw)) == ((T,bs),(0,))
+            @test ontravis() || size(first(bw)) == (T,bs)
 
             @test DiskDataProviders.queuelength(dataset) == 5
             @test size(DiskDataProviders.full_batch(dataset)) == (T,N)
