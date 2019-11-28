@@ -8,4 +8,5 @@ This package implements datastructures that are iterable and backed by a buffer 
 
 Intended usage: To buffer data reading from disk when training convolutional neural networks (1d or 2d) using [Flux.jl](https://github.com/FluxML/Flux.jl/). This allows the CPU to work with the disk and data while the GPU is working on the training. This package might be useful for other things as well.
 
-For usage example, see [the documentation](https://baggepinnen.github.io/DiskDataProviders.jl/latest)
+For usage example, see [the documentation](https://baggepinnen.github.io/DiskDataProviders.jl/latest)  
+For lower-level buffered iterators, see [LengthChannels.jl](https://github.com/baggepinnen/LengthChannels.jl) 
